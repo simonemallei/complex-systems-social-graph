@@ -22,37 +22,39 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def compute_update(G, beta, n_update, wii = None):
+def compute_update(G, beta, n_update_list, wii = None):
   opinions = nx.get_node_attributes(G, 'opinion')
-  weights = {}
 
-  # Computing weights w(i, j) where i == n_update and (i, j) are edges of G
-  # weights[(n_update, n_update)] = beta * opinions[n_update] * opinions[n_update] + 1
-  weights[(n_update, n_update)] = wii if wii is not None else beta * opinions[n_update] * opinions[n_update] + 1
-  for n_to in G.neighbors(n_update):
-    weights[(n_update, n_to)] = beta * opinions[n_update] * opinions[n_to] + 1
+  for n_update in n_update_list:
+    weights = {}
 
-  # Computing new opinion of n_update
-  op_num = weights[(n_update, n_update)] * opinions[n_update]
-  op_den = weights[(n_update, n_update)]
-  for n_to in G.neighbors(n_update):
-    op_num += weights[(n_update, n_to)] * opinions[n_to]
-    op_den += weights[(n_update, n_to)]
+    # Computing weights w(i, j) where i == n_update and (i, j) are edges of G
+    # weights[(n_update, n_update)] = beta * opinions[n_update] * opinions[n_update] + 1
+    weights[(n_update, n_update)] = wii if wii is not None else beta * opinions[n_update] * opinions[n_update] + 1
+    for n_to in G.neighbors(n_update):
+      weights[(n_update, n_to)] = beta * opinions[n_update] * opinions[n_to] + 1
 
-  # If the denominator is < 0, the opinion gets polarized and 
-  # the value is set to sgn(opinions[n_update])
-  if op_den <= 0:
-    opinions[n_update] = opinions[n_update] / abs(opinions[n_update])
-  else:
-    opinions[n_update] = op_num / op_den
-  
-  # Opinions are capped within [-1, 1] 
-  if opinions[n_update] < -1:
-    opinions[n_update] = -1
-  if opinions[n_update] > 1:
-    opinions[n_update] = 1
+    # Computing new opinion of n_update
+    op_num = weights[(n_update, n_update)] * opinions[n_update]
+    op_den = weights[(n_update, n_update)]
+    for n_to in G.neighbors(n_update):
+      op_num += weights[(n_update, n_to)] * opinions[n_to]
+      op_den += weights[(n_update, n_to)]
 
-  nx.set_node_attributes(G, opinions, 'opinion')
+    # If the denominator is < 0, the opinion gets polarized and 
+    # the value is set to sgn(opinions[n_update])
+    if op_den <= 0:
+      opinions[n_update] = opinions[n_update] / abs(opinions[n_update])
+    else:
+      opinions[n_update] = op_num / op_den
+    
+    # Opinions are capped within [-1, 1] 
+    if opinions[n_update] < -1:
+      opinions[n_update] = -1
+    if opinions[n_update] > 1:
+      opinions[n_update] = 1
+
+    nx.set_node_attributes(G, opinions, 'opinion')
 
   return G
 
@@ -136,7 +138,7 @@ def paper_test(num_nodes, central_ops, beta, w11):
       opinions_list_beba = [transform_to_BEBA(item) for item in opinions_list_scaled]
       opinions = dict(zip(G.nodes(), opinions_list_beba))
       nx.set_node_attributes(G, opinions, 'opinion')
-      G = compute_update(G, beta, 0, w11)
+      G = compute_update(G, beta, [0], w11)
       opinions = nx.get_node_attributes(G, 'opinion')
       z_values_beba.append(opinions[0])
   
