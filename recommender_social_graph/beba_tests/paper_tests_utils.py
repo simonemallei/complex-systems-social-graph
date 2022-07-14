@@ -77,6 +77,11 @@ def paper_test(num_nodes, central_ops, beta, w11):
   # parameter is the neighbors number
   G = nx.star_graph(num_nodes-1)
 
+  # Setting beba_beta as node attributes
+  beba_beta = [beta] * num_nodes
+  node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
+  nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
+
   for central_op in central_ops:
     z_values_beba = []
     for x_scaled in x_values_scaled:
@@ -86,7 +91,7 @@ def paper_test(num_nodes, central_ops, beta, w11):
         opinions = dict(zip(G.nodes(), opinions_list_beba))
         nx.set_node_attributes(G, opinions, 'opinion')
         try:
-            G = compute_update(G, beta, [0], w11)
+            G = compute_update(G, [0], w11)
         except ComputeUpdateError:
             print("beta_list and/or wii list do not have the same length as the list of nodes to be updated")
             raise PaperTestError
