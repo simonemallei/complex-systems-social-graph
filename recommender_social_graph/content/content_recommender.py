@@ -16,7 +16,7 @@ Parameters
       The graph containing the social network.
   act_nodes : {list of object}
       The list containing activated nodes' IDs (dictionary keys).
-  strategy : {"random"} default: "random"
+  strategy : {"random", "nudge", "similar"} default: "random"
       The string that defines the strategy used by the recommender system.
 
 Returns
@@ -24,7 +24,7 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def content_recommender(G, act_nodes, strategy="random"):
+def content_recommender(G, act_nodes, strategy="random", nudge_mean=0.0, nudge_std=0.1, similar_thresh=0.5):
   feed = nx.get_node_attributes(G, 'feed')
   new_feed = dict()
   for node_id in act_nodes:
@@ -33,7 +33,18 @@ def content_recommender(G, act_nodes, strategy="random"):
       recommend_cont = np.random.uniform(-1, 1) 
       post = [recommend_cont] # a list with one value
       new_feed[node_id] = feed.get(node_id, []) + post
-
+    elif strategy == "nudge":
+      # Generating recommended content using a normal distribution with
+      # the following parameters: mean = {nudge_mean}, std = {nudge_std}
+      recommend_cont = np.random.normal(nudge_mean, nudge_std)
+      recommend_cont = np.min(1, np.max(-1, recommend_cont))
+      post = [recommend_cont] # a list with one value
+      new_feed[node_id] = feed.get(node_id, []) + post
+    elif strategy == "similar":
+      # Deleting content that is too far away from the node's opinion (measuring the distance
+      # as the absolute difference between the content's opinion and the node's one) 
+      prev_feed = feed.get(node_id, [])
+      new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
   # Updating feed with recommended content  
   nx.set_node_attributes(G, new_feed , name='feed')
   return G
@@ -59,13 +70,15 @@ Parameters
       The percentage of the activated nodes that will be posting nodes as well.
   epsilon : {float}
       The Gaussian noise's standard deviation in the posting phase.
+  strategy : {"random", "nudge", "similar"} default: "random"
+      The string that defines the strategy used by the recommender system.
 
 Returns
 -------
   G : {networkx.Graph}
       The updated graph.
 '''
-def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0):
+def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random"):
   # Sampling randomly the activating nodes
   updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
   act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
@@ -73,7 +86,7 @@ def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_postin
   #print(f"Activated nodes (consuming their feed): {act_nodes}")
 
   # Executing content recommender system on activated nodes
-  G = content_recommender(G, act_nodes)
+  G = content_recommender(G, act_nodes, strategy)
   # Executing activation phase: activated nodes will consume their feed
   G = compute_activation(G, act_nodes)
 
