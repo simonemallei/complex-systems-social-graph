@@ -26,6 +26,7 @@ Returns
 '''
 def content_recommender(G, act_nodes, strategy="random", nudge_mean=0.0, nudge_std=0.1, similar_thresh=0.5):
   feed = nx.get_node_attributes(G, 'feed')
+  opinions = nx.get_node_attributes(G, 'opinion')
   new_feed = dict()
   for node_id in act_nodes:
     if strategy == "random":
@@ -37,10 +38,11 @@ def content_recommender(G, act_nodes, strategy="random", nudge_mean=0.0, nudge_s
       # Generating recommended content using a normal distribution with
       # the following parameters: mean = {nudge_mean}, std = {nudge_std}
       recommend_cont = np.random.normal(nudge_mean, nudge_std)
-      recommend_cont = np.min(1, np.max(-1, recommend_cont))
+      recommend_cont = min(1, max(-1, recommend_cont))
       post = [recommend_cont] # a list with one value
       new_feed[node_id] = feed.get(node_id, []) + post
     elif strategy == "similar":
+      curr_op = opinions[node_id]
       # Deleting content that is too far away from the node's opinion (measuring the distance
       # as the absolute difference between the content's opinion and the node's one) 
       prev_feed = feed.get(node_id, [])
