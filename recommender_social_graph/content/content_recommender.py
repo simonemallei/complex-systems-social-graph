@@ -18,13 +18,22 @@ Parameters
       The list containing activated nodes' IDs (dictionary keys).
   strategy : {"random", "nudge", "similar"} default: "random"
       The string that defines the strategy used by the recommender system.
-
+  strat_param : {dictionary}
+      The dictionary containing the parameters value used by the recommender, based
+      on {strategy} value.
+      - key: "nudge_mean",
+        value: mean of distribution of values produced by "nudge" strategy.
+      - key: "nudge_std",
+        value: standard dev. of distribution of values produced by "nudge" strategy.
+      - key: "similar_thresh",
+        value: threshold value used by "similar" strategy.
+        
 Returns
 -------
   G : {networkx.Graph}
       The updated graph.
 '''
-def content_recommender(G, act_nodes, strategy="random", nudge_mean=0.0, nudge_std=0.1, similar_thresh=0.5):
+def content_recommender(G, act_nodes, strategy="random", strat_param={}):
   feed = nx.get_node_attributes(G, 'feed')
   opinions = nx.get_node_attributes(G, 'opinion')
   new_feed = dict()
@@ -35,6 +44,8 @@ def content_recommender(G, act_nodes, strategy="random", nudge_mean=0.0, nudge_s
       post = [recommend_cont] # a list with one value
       new_feed[node_id] = feed.get(node_id, []) + post
     elif strategy == "nudge":
+      nudge_mean = strat_param.get('nudge_mean', 0.0)
+      nudge_std = strat_param.get('nudge_std', 0.1)
       # Generating recommended content using a normal distribution with
       # the following parameters: mean = {nudge_mean}, std = {nudge_std}
       recommend_cont = np.random.normal(nudge_mean, nudge_std)
@@ -42,6 +53,7 @@ def content_recommender(G, act_nodes, strategy="random", nudge_mean=0.0, nudge_s
       post = [recommend_cont] # a list with one value
       new_feed[node_id] = feed.get(node_id, []) + post
     elif strategy == "similar":
+      similar_thresh = strat_param.get('similar_thresh', 0.5)
       curr_op = opinions[node_id]
       # Deleting content that is too far away from the node's opinion (measuring the distance
       # as the absolute difference between the content's opinion and the node's one) 
@@ -74,13 +86,21 @@ Parameters
       The Gaussian noise's standard deviation in the posting phase.
   strategy : {"random", "nudge", "similar"} default: "random"
       The string that defines the strategy used by the recommender system.
+  strat_param : {dictionary}
+      The dictionary containing the parameters value based on the {strategy} value.
+      - key: "nudge_mean",
+        value: mean of distribution of values produced by "nudge" strategy.
+      - key: "nudge_std",
+        value: standard dev. of distribution of values produced by "nudge" strategy.
+      - key: "similar_thresh",
+        value: threshold value used by "similar" strategy.
 
 Returns
 -------
   G : {networkx.Graph}
       The updated graph.
 '''
-def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random"):
+def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random", strat_param = {}):
   # Sampling randomly the activating nodes
   updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
   act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
@@ -88,7 +108,7 @@ def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_postin
   #print(f"Activated nodes (consuming their feed): {act_nodes}")
 
   # Executing content recommender system on activated nodes
-  G = content_recommender(G, act_nodes, strategy)
+  G = content_recommender(G, act_nodes, strategy, strat_param)
   # Executing activation phase: activated nodes will consume their feed
   G = compute_activation(G, act_nodes)
 
