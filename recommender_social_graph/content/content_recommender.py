@@ -16,17 +16,19 @@ Parameters
       The graph containing the social network.
   act_nodes : {list of object}
       The list containing activated nodes' IDs (dictionary keys).
-  strategy : {"random", "nudge", "similar"} default: "random"
+  strategy : {"random", "normal", "similar", "unsimilar"} default: "random"
       The string that defines the strategy used by the recommender system.
   strat_param : {dictionary}
       The dictionary containing the parameters value used by the recommender, based
       on {strategy} value.
-      - key: "nudge_mean",
-        value: mean of distribution of values produced by "nudge" strategy.
-      - key: "nudge_std",
-        value: standard dev. of distribution of values produced by "nudge" strategy.
+      - key: "normal_mean",
+        value: mean of distribution of values produced by "normal" strategy.
+      - key: "normal_std",
+        value: standard dev. of distribution of values produced by "normal" strategy.
       - key: "similar_thresh",
         value: threshold value used by "similar" strategy.
+      - key: "unsimilar_thresh",
+        value: threshold value used by "unsimilar" strategy.
         
 Returns
 -------
@@ -43,12 +45,12 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
       recommend_cont = np.random.uniform(-1, 1) 
       post = [recommend_cont] # a list with one value
       new_feed[node_id] = feed.get(node_id, []) + post
-    elif strategy == "nudge":
-      nudge_mean = strat_param.get('nudge_mean', 0.0)
-      nudge_std = strat_param.get('nudge_std', 0.1)
+    elif strategy == "normal":
+      normal_mean = strat_param.get('normal_mean', 0.0)
+      normal_std = strat_param.get('normal_std', 0.1)
       # Generating recommended content using a normal distribution with
-      # the following parameters: mean = {nudge_mean}, std = {nudge_std}
-      recommend_cont = np.random.normal(nudge_mean, nudge_std)
+      # the following parameters: mean = {normal_mean}, std = {normal_std}
+      recommend_cont = np.random.normal(normal_mean, normal_std)
       recommend_cont = min(1, max(-1, recommend_cont))
       post = [recommend_cont] # a list with one value
       new_feed[node_id] = feed.get(node_id, []) + post
@@ -59,6 +61,13 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
       # as the absolute difference between the content's opinion and the node's one) 
       prev_feed = feed.get(node_id, [])
       new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
+    elif strategy == "unsimilar":
+      unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
+      curr_op = opinions[node_id]
+      # Deleting content that is too close from the node's opinion (measuring the distance
+      # as the absolute difference between the content's opinion and the node's one) 
+      prev_feed = feed.get(node_id, [])
+      new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
   # Updating feed with recommended content  
   nx.set_node_attributes(G, new_feed , name='feed')
   return G
@@ -113,16 +122,18 @@ Parameters
       The percentage of the activated nodes that will be posting nodes as well.
   epsilon : {float}
       The Gaussian noise's standard deviation in the posting phase.
-  strategy : {"random", "nudge", "similar"} default: "random"
+  strategy : {"random", "normal", "similar"} default: "random"
       The string that defines the strategy used by the recommender system.
   strat_param : {dictionary}
       The dictionary containing the parameters value based on the {strategy} value.
-      - key: "nudge_mean",
-        value: mean of distribution of values produced by "nudge" strategy.
-      - key: "nudge_std",
-        value: standard dev. of distribution of values produced by "nudge" strategy.
+      - key: "normal_mean",
+        value: mean of distribution of values produced by "normal" strategy.
+      - key: "normal_std",
+        value: standard dev. of distribution of values produced by "normal" strategy.
       - key: "similar_thresh",
         value: threshold value used by "similar" strategy.
+      - key: "unsimilar_thresh",
+        value: threshold value used by "unsimilar" strategy.
 
 Returns
 -------
