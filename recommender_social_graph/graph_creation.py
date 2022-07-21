@@ -36,7 +36,7 @@ def MY_homophilic_ba_graph(N, m,alpha=2, beta=1):
         n1_attr = node_attribute[n1]
         for n2 in range(N):
             n2_attr = node_attribute[n2]
-            dist[(n1,n2)] = abs(n1_attr - n2_attr)
+            dist[(n1,n2)] = abs(n1_attr - n2_attr) * 50
 
 
     target_list = list(range(m))
