@@ -1,5 +1,5 @@
+import networkx as nx
 from scipy.stats import entropy
-
 '''
 feed_entropy returns a metric that represents the entropy of
 the feed history.
