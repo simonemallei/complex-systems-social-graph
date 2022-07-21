@@ -24,13 +24,13 @@ def MY_homophilic_ba_graph(N, m,alpha=2, beta=1):
     
 
     for n in range(N):
-        #generate opinion 
-        op = int(random.random()*100)
+        #generate opinion in range [-1, 1]
+        op = random.random() * 2 - 1
         G.add_node(n , opinion = op)
         node_attribute[n] = op
 
     #create homophilic distance ### faster to do it outside loop ###
-    dist = defaultdict(int) #distance between nodes
+    dist = defaultdict(float) #distance between nodes
 
     for n1 in range(N):
         n1_attr = node_attribute[n1]
@@ -85,8 +85,7 @@ def _pick_targets(G,source,target_list,dist,m ,alpha, beta):
 
 '''
 create_graph creates a graph using the method MY_homophilic_ba_graph,
-then it maps the opinions from the range [0, 100] to [-1, 1] and add
-{edg_feat} features to each edge.
+then it adds the beta used for BEBA and ABEBA models.
 
 Parameters
 ----------
@@ -96,9 +95,9 @@ Parameters
       The list with nodes' beta values.
   avg_friend: {}
       The number of average neighbors for each node in the graph.
-  alpha : {float}
+  hp_alpha : {float}
       MY_homophilic_graph's homophily parameter.
-  beta : {float}
+  hp_beta : {float}
       MY_homophilic_graph's preferential attachment parameter.
 
 Returns
@@ -118,11 +117,6 @@ def create_graph(n_ag, beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1):
 
   # Calls MY_homophilic_ba_graph
   G = MY_homophilic_ba_graph(n_ag, avg_friend, hp_alpha, hp_beta)
-  
-  # Remapping opinions from [0, 100] to [-1, 1]
-  opinions = nx.get_node_attributes(G, 'opinion')
-  for curr_op in opinions:
-    opinions[curr_op] = (opinions[curr_op] - 50) / 50
 
   # Setting opinions as node attributes  
   nx.set_node_attributes(G, opinions, 'opinion')
