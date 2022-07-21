@@ -33,7 +33,10 @@ def feed_entropy(G, n_buckets=10):
             # updating counter of {buck_idx}
             buckets[buck_idx] += 1
         count_feed = sum(buckets)
-        buckets = [buck/count_feed for buck in buckets]
-        if len(curr_history) != 0:
-            entropy_dict[node] = entropy(buckets, base = n_buckets)
+        if count_feed == 0:
+            entropy_dict[node] = nan
+        else:
+            buckets = [buck/count_feed for buck in buckets]
+            if len(curr_history) != 0:
+                entropy_dict[node] = entropy(buckets, base = n_buckets)
     return entropy_dict
