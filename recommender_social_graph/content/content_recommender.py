@@ -64,6 +64,35 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
   return G
 
 '''
+monitor_feed performs the monitoring of each node's feed.
+It uses the 'feed_history' graph attribute in order
+to register all the posts that are read by each node.
+
+Parameters
+----------
+  G : {networkx.Graph}
+      The graph containing the social network.
+  act_nodes : {list of object}
+      The list containing activated nodes' IDs (dictionary keys).
+        
+Returns
+-------
+  G : {networkx.Graph}
+      The updated graph.
+'''
+def monitor_feed(G, act_nodes):
+  feed = nx.get_node_attributes(G, 'feed')
+  feed_history = nx.get_node_attributes(G, 'feed_history')
+  for node_id in act_nodes:
+    # Updating feed history for each activated nodes
+    curr_history = feed_history.get(node_id, [])
+    curr_feed = feed.get(node_id, [])
+    feed_history[node_id] = curr_history + curr_feed
+  # Updating the history in the graph
+  nx.set_node_attributes(G, feed_history, name='feed_history')
+  return G
+  
+'''
 simulate_epoch_content_recommender simulates an epoch. It randomly activates a 
 percentage ({percent_updating_nodes}) of graph's nodes: firstly the content
 recommender will update their feed, then each node will update its opinion 
@@ -109,6 +138,8 @@ def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_postin
 
   # Executing content recommender system on activated nodes
   G = content_recommender(G, act_nodes, strategy, strat_param)
+  # Monitoring feeds that are going to be cleared 
+  G = monitor_feed(G, act_nodes)
   # Executing activation phase: activated nodes will consume their feed
   G = compute_activation(G, act_nodes)
 
