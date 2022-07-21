@@ -118,9 +118,6 @@ def create_graph(n_ag, beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1):
   # Calls MY_homophilic_ba_graph
   G = MY_homophilic_ba_graph(n_ag, avg_friend, hp_alpha, hp_beta)
 
-  # Setting opinions as node attributes  
-  nx.set_node_attributes(G, opinions, 'opinion')
-
   # Setting beba_beta as node attributes
   node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
   nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
