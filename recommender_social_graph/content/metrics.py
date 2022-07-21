@@ -1,4 +1,4 @@
-import scipy.stats.entropy
+from scipy.stats import entropy
 
 '''
 feed_entropy returns a metric that represents the entropy of
@@ -15,13 +15,13 @@ Parameters
   
 Returns
 -------
-  entropy : {dict}
+  entropy_dict : {dict}
       The dictionary containing for each graph's node the entropy
       of its feed history.
 '''
 def feed_entropy(G, n_buckets=10):
     feed_history = nx.get_node_attributes(G, 'feed_history')
-    entropy = {}
+    entropy_dict = {}
     for node in G.nodes():
         # Computing entropy for each not empty feed history
         curr_history = feed_history.get(node, [])
@@ -35,5 +35,5 @@ def feed_entropy(G, n_buckets=10):
         count_feed = sum(buckets)
         buckets = [buck/count_feed for buck in buckets]
         if len(curr_history) != 0:
-            entropy[node] = scipy.stats.entropy(buckets, base = n_buckets)
-    return entropy
+            entropy_dict[node] = entropy(buckets, base = n_buckets)
+    return entropy_dict
