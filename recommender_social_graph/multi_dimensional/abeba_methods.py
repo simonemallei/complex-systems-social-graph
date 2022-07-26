@@ -215,8 +215,3 @@ def apply_initial_feed(G, ops, n_post = 10, epsilon = 0.1):
 
   return G
 
-
-
-g = create_graph(5, ops=3,  beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1)
-compute_activation(g, {1, 2}, 3)
-compute_post(g, {1, 2}, 3, 0.1)
