@@ -8,7 +8,7 @@ The entropy metric is computed by putting each opinion in one of
 Parameters
 ----------
   G : {networkx.Graph}
-      The graph containing the feed history to measure.
+      The graph containing node's opinions.
   n_buckets : {int} default: 10
       The number of buckets used to compute the entropy.
   
@@ -16,7 +16,7 @@ Returns
 -------
   entropy_dict : {dict}
       The dictionary containing for each graph's node the entropy
-      of its feed history.
+      of node's opinions in the list of recommended people
 '''
 def diversity_of_recommendation(G, n_buckets=10):
     people_recommended_dict = nx.get_node_attributes(G, 'people_recommended')
