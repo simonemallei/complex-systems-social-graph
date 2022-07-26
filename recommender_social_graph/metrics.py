@@ -64,8 +64,8 @@ Returns
 '''
 def disagreement(G):
     # We need opinions and betas to compute the weights
-    opinion = list(nx.get_node_attributes(G, 'opinion'))
-    beta = list(nx.get_node_attributes(G, 'beba_beta'))
+    opinion = list(nx.get_node_attributes(G, 'opinion').values())
+    beta = list(nx.get_node_attributes(G, 'beba_beta').values())
     dis_dict = {}
     for node_from in G.nodes():
         disagreement = 0.0
