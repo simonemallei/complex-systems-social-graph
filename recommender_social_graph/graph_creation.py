@@ -107,20 +107,29 @@ Returns
 '''
 def create_graph(n_ag, beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1):
   
-  # checks on beba_beta length
-  if len(beba_beta) != 1 and len(beba_beta) != n_ag:
-    print("WARNING: beba_beta length is not valid. It must be 1 or nodes' number. Default value will be used")
-    beba_beta = [1] * n_ag
+    # checks on beba_beta length
+    if len(beba_beta) != 1 and len(beba_beta) != n_ag:
+        print("WARNING: beba_beta length is not valid. It must be 1 or nodes' number. Default value will be used")
+        beba_beta = [1] * n_ag
 
-  if len(beba_beta) == 1:
-    beba_beta = [beba_beta[0]] * n_ag
+    if len(beba_beta) == 1:
+        beba_beta = [beba_beta[0]] * n_ag
 
-  # Calls MY_homophilic_ba_graph
-  G = MY_homophilic_ba_graph(n_ag, avg_friend, hp_alpha, hp_beta)
+    # Calls MY_homophilic_ba_graph
+    G = MY_homophilic_ba_graph(n_ag, avg_friend, hp_alpha, hp_beta)
 
-  # Setting beba_beta as node attributes
-  node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
-  nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
+    # Setting beba_beta as node attributes
+    node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
+    nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
 
-  return G
+    op = nx.get_node_attributes(G, 'opinion')
+
+    weight = {}
+    # Creating weights
+    for node_from in G.nodes():
+        for node_to in G.nodes():
+            weight[(node_from, node_to)] = (beba_beta[node_from] * op[node_from] *
+                                            op[node_to]) + 1
+    nx.set_node_attributes(G, weight, 'weight')
+    return G
 
