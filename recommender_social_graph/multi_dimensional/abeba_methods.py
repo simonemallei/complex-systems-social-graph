@@ -1,6 +1,6 @@
 import networkx as nx
 import numpy as np
-
+from tabulate import tabulate
 from graph_creation import create_graph
 
 

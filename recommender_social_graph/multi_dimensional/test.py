@@ -5,7 +5,7 @@ from graph_creation import *
 from abeba_methods import *
 from metrics import polarisation
 import matplotlib.pyplot as plt
-
+from content.content_recommender import *
 """
     print_graph prints an opinion graph where there are 3 opinions 
     and uses the value of opinions to choose the RGB color of a node
@@ -26,11 +26,11 @@ def print_graph(G, print_labels=True):
         nx.draw(G, node_color=color_map, with_labels=True)
     plt.show()
 
-nodes, ops = 50, 3
+nodes, ops = 10, 3
 G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
 G = apply_initial_feed(G, ops, n_post=2)
-print_graph(G, print_labels=False)
-# print(tabulate([[key] + [np.round(val, 3)] for key, val in labels.items()], headers=["node label", "opinion value"]))
-for i in range(500):
-    G = simulate_epoch_updated(G, ops, 50, 50)
-print_graph(G, print_labels=False)
+print_graph(G, False)
+for i in range(100):
+    simulate_epoch_content_recommender(G, ops, 50, 50, 0.0, "similar", {"similar_thresh" : 0.3})
+print_graph(G, False)
+
