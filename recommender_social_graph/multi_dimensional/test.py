@@ -26,11 +26,12 @@ def print_graph(G, print_labels=True):
         nx.draw(G, node_color=color_map, with_labels=True)
     plt.show()
 
-nodes, ops = 10, 3
+nodes, ops = 5, 3
 G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
 G = apply_initial_feed(G, ops, n_post=2)
-print_graph(G, False)
-for i in range(100):
-    simulate_epoch_content_recommender(G, ops, 50, 50, 0.0, "similar", {"similar_thresh" : 0.3})
-print_graph(G, False)
+# print_graph(G, False)
+goal = np.array([0.0, 0.0, 0.0])
+for i in range(50):
+    simulate_epoch_content_recommender(G, ops, 50, 50, 0.0, "nudge_opt", {"nudge_goal" : goal, "n_post" : 4})
+# print_graph(G, False)
 

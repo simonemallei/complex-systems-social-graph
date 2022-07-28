@@ -1,3 +1,4 @@
+from platform import node
 import networkx as nx
 import numpy as np
 from collections import defaultdict
@@ -6,7 +7,7 @@ from abeba_methods import compute_activation, compute_post
 import math
 from tabulate import tabulate
 
-'''
+"""
 content_recommender performs the recommender system by content.
 It performs the recommendation routine on the nodes contained 
 in {act_nodes}.
@@ -15,48 +16,97 @@ The recommender routine depends on which strategy is chosen
 
 Parameters
 ----------
-  G : {networkx.Graph}
-      The graph containing the social network.
-  act_nodes : {list of object}
-      The list containing activated nodes' IDs (dictionary keys).
-  strategy : {"random", "normal", "similar", "unsimilar"} default: "random"
-      The string that defines the strategy used by the recommender system.
-  strat_param : {dictionary}
-      The dictionary containing the parameters value used by the recommender, based
-      on {strategy} value.
-      - key: "normal_mean",
-        value: mean of distribution of values produced by "normal" strategy.
-      - key: "normal_std",
-        value: standard dev. of distribution of values produced by "normal" strategy.
-      - key: "similar_thresh",
-        value: threshold value used by "similar" strategy.
-      - key: "unsimilar_thresh",
-        value: threshold value used by "unsimilar" strategy.
+    G : {networkx.Graph}
+        The graph containing the social network.
+    act_nodes : {list of object}
+        The list containing activated nodes' IDs (dictionary keys).
+    strategy : {"random", "normal", "nudge", "nudge_opt", "similar", "unsimilar"} default: "random"
+        The string that defines the strategy used by the recommender system.
+    strat_param : {dictionary}
+        The dictionary containing the parameters value used by the recommender, based
+        on {strategy} value.
+            - key: "n_post",
+              value: number of posts added in activated node's feed by the recommender.
+            - key: "normal_mean",
+              value: mean of distribution of values produced by "normal" strategy.
+            - key: "normal_std",
+              value: standard dev. of distribution of values produced by "normal" strategy.
+            - key: "nudge_goal",
+              value: the "opinion goal" by the nudging content recommender.
+            - key: "similar_thresh",
+              value: threshold value used by "similar" strategy.
+            - key: "unsimilar_thresh",
+              value: threshold value used by "unsimilar" strategy.
         
 Returns
 -------
-  G : {networkx.Graph}
-      The updated graph.
-'''
+    G : {networkx.Graph}
+        The updated graph.
+"""
+
 def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
   feed = nx.get_node_attributes(G, 'feed')
   opinions = nx.get_node_attributes(G, 'opinion')
+  beta = nx.get_node_attributes(G, 'beba_beta')
   new_feed = dict()
   for node_id in act_nodes:
     if strategy == "random":
       # Generating random recommended content in the range [-1, 1]
-      recommend_cont = np.random.rand(ops)
-      post = [recommend_cont] # a list with one value
+      # (n_post posts in the feed) 
+      n_post = strat_param.get('n_post', 1)
+      post = [np.random.rand(ops) for i in range(n_post)]
+      for i in range(n_post):
+        for opinion in range(ops):
+          post[i][opinion] = post[i][opinion] * 2 - 1
       new_feed[node_id] = feed.get(node_id, []) + post
     elif strategy == "normal":
       normal_mean = strat_param.get('normal_mean', 0.0)
       normal_std = strat_param.get('normal_std', 0.1)
       # Generating recommended content using a normal distribution with
       # the following parameters: mean = {normal_mean}, std = {normal_std}
-      recommend_cont = np.random.normal(normal_mean, normal_std, ops)
-      for op in range(ops):
-        recommend_cont[op] = min(1, max(-1, recommend_cont[op]))
-      post = [recommend_cont] # a list with one value
+      # (n_post posts in the feed) 
+      post = []
+      for i in range(n_post):
+        recommend_cont = np.random.normal(normal_mean, normal_std, ops)
+        for op in range(ops):
+          recommend_cont[op] = min(1, max(-1, recommend_cont[op]))
+        post.append(recommend_cont)
+      new_feed[node_id] = feed.get(node_id, []) + post
+    elif strategy == 'nudge':
+      # Generating recommended content using a normal distribution with
+      # the following parameters: mean = {nudge_mean}, std = {nudge_std}
+      # (n_post posts in the feed)
+      curr_op = opinions[node_id]
+      nudge_goal = strat_param.get('nudge_goal', np.zeros(ops))
+      max_dist = math.sqrt(4 * ops)
+      dist = np.linalg.norm(curr_op - nudge_goal) / max_dist
+      nudge_std = (dist / 4 * (1 / (2 ** beta[node_id])))
+      n_post = strat_param.get('n_post', 1)
+      post = []
+      for i in range(n_post):
+        current = np.zeros(ops)
+        for opinion in range(ops):
+          current[opinion] = np.random.normal(nudge_goal[opinion], nudge_std)
+          current[opinion] = min(1, max(-1, current[opinion]))
+        post.append(current)
+      new_feed[node_id] = feed.get(node_id, []) + post
+    elif strategy == 'nudge_opt':
+      curr_op = opinions[node_id]
+      nudge_goal = strat_param.get('nudge_goal', np.zeros(ops))
+      for opinion in range(ops):
+        if curr_op[opinion] * nudge_goal[opinion] < 0.0:
+          nudge_goal[opinion] = 0.0
+      max_dist = math.sqrt(4 * ops)
+      dist = np.linalg.norm(curr_op - nudge_goal) / max_dist
+      nudge_std = (dist / 4 * (1 / (2 ** beta[node_id])))
+      n_post = strat_param.get('n_post', 1)
+      post = []
+      for i in range(n_post):
+        current = np.zeros(ops)
+        for opinion in range(ops):
+          current[opinion] = np.random.normal(nudge_goal[opinion], nudge_std)
+          current[opinion] = min(1, max(-1, current[opinion]))
+        post.append(current)
       new_feed[node_id] = feed.get(node_id, []) + post
     elif strategy == "similar":
       similar_thresh = strat_param.get('similar_thresh', 0.5)
