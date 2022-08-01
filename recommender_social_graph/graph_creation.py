@@ -124,12 +124,5 @@ def create_graph(n_ag, beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1):
 
     op = nx.get_node_attributes(G, 'opinion')
 
-    weight = {}
-    # Creating weights
-    for node_from in G.nodes():
-        for node_to in G.nodes():
-            weight[(node_from, node_to)] = (beba_beta[node_from] * op[node_from] *
-                                            op[node_to]) + 1
-    nx.set_node_attributes(G, weight, 'weight')
     return G
 
