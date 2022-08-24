@@ -150,15 +150,3 @@ def feed_entropy(G, ops, n_buckets=4, max_len_history=30):
                 buckets.append(counter[non_empty_bucket] / len_feed)
             entropy_dict[node] = entropy(buckets, base = n_buckets ** ops)
     return entropy_dict
-    """
-                # using min in order to not have {n_buckets} as index
-                # ({n_buckets} possible buckets)
-                buck_idx = min(n_buckets - 1, int((content + 1.0)* n_buckets / 2))
-                # updating counter of {buck_idx}
-                buckets[buck_idx] += 1
-            # defining the buckets as a probability distribution 
-            # in order of being able to compute its entropy
-            buckets = [buck/len_feed for buck in buckets]
-            entropy_dict[node] = entropy(buckets, base = n_buckets)
-    return entropy_dict
-    """

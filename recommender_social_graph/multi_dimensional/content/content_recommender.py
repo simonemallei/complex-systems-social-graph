@@ -3,7 +3,10 @@ import networkx as nx
 import numpy as np
 from collections import defaultdict
 import random
-from abeba_methods import compute_activation, compute_post
+# Use this for notebook
+from multi_dimensional.abeba_methods import compute_activation, compute_post
+# Use this for test.py
+# from abeba_methods import compute_activation, compute_post
 import math
 from tabulate import tabulate
 
@@ -66,6 +69,7 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       # the following parameters: mean = {normal_mean}, std = {normal_std}
       # (n_post posts in the feed) 
       post = []
+      n_post = strat_param.get('n_post', 1)
       for i in range(n_post):
         recommend_cont = np.random.normal(normal_mean, normal_std, ops)
         for op in range(ops):
@@ -93,18 +97,19 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
     elif strategy == 'nudge_opt':
       curr_op = opinions[node_id]
       nudge_goal = strat_param.get('nudge_goal', np.zeros(ops))
+      copy_goal = np.copy(nudge_goal)
       for opinion in range(ops):
-        if curr_op[opinion] * nudge_goal[opinion] < 0.0:
-          nudge_goal[opinion] = 0.0
+        if curr_op[opinion] * copy_goal[opinion] < 0.0:
+          copy_goal[opinion] = 0.0
       max_dist = math.sqrt(4 * ops)
-      dist = np.linalg.norm(curr_op - nudge_goal) / max_dist
+      dist = np.linalg.norm(curr_op - copy_goal) / max_dist
       nudge_std = (dist / 4 * (1 / (2 ** beta[node_id])))
       n_post = strat_param.get('n_post', 1)
       post = []
       for i in range(n_post):
         current = np.zeros(ops)
         for opinion in range(ops):
-          current[opinion] = np.random.normal(nudge_goal[opinion], nudge_std)
+          current[opinion] = np.random.normal(copy_goal[opinion], nudge_std)
           current[opinion] = min(1, max(-1, current[opinion]))
         post.append(current)
       new_feed[node_id] = feed.get(node_id, []) + post
