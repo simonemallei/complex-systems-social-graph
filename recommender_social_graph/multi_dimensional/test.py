@@ -26,16 +26,33 @@ def print_graph(G, print_labels=True):
         nx.draw(G, node_color=color_map, with_labels=True)
     plt.show()
 
-nodes, ops = 50, 3
-G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
-G = apply_initial_feed(G, ops, n_post=2)
-print_graph(G, False)
-goal = np.array([0.0, 0.0, 0.0])
-for i in range(100):
-    simulate_epoch_content_recommender(G, ops, 50, 50, 0.0, "nudge", {"nudge_goal" : goal, "n_post" : 4})
-print_graph(G, False)
-print(polarisation(G))
-print(disagreement(G))
-print(sarle_bimodality(G, ops))
-print(feed_entropy(G, ops))
+def main():
+    nodes, ops = 50, 3
+    G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
+    G = apply_initial_feed(G, ops, n_post=2)
+    print_graph(G, False)
+
+    random_param = {'n_post': 2}
+    normal_param = {'normal_mean': 0.5, 'normal_std': 0.1, 'n_post': 2}
+    nudge_param = {'nudge_goal': np.array([0.5, 0.5, 0.5]), 'n_post': 2}
+    similar_param = {'similar_thresh': 0.5}
+    unsimilar_param = {'unsimilar_thresh': 0.2}
+
+    steps = 200
+    for i in range(steps):
+        #G = simulate_epoch_content_recommender(G, ops, 50, 50, strat_param=random_param)
+        #G = simulate_epoch_content_recommender(G, ops, 50, 50, strategy="normal", strat_param=normal_param)
+        #G = simulate_epoch_content_recommender(G, ops, 50, 50, strategy="nudge",strat_param=nudge_param)
+        #G = simulate_epoch_content_recommender(G, ops, 50, 50,strategy="nudge_opt",strat_param=nudge_param)
+        G = simulate_epoch_content_recommender(G, ops, 50, 50, strategy="similar", strat_param=similar_param)
+        #G = simulate_epoch_content_recommender(_G, ops, 50, 50, strategy="unsimilar",strat_param=unsimilar_param)
+
+    print_graph(G, False)
+    print("Polarisation: " + str(disagreement(G)))
+    #print(disagreement(G))
+    #print(sarle_bimodality(G, ops))
+    #print(feed_entropy(G, ops))
+
+if __name__ == "__main__":
+    main()
 
