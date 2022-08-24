@@ -85,6 +85,8 @@ Returns
 '''
 def compute_post(G, nodes, epsilon = 0.0):
   opinions = nx.get_node_attributes(G, 'opinion')
+  estim = nx.get_node_attributes(G, 'to_estimate')
+    
   for node_id in nodes:
     # epsilon defines the standard deviation of the value generated
     rand_eps = np.random.normal(0, epsilon, 1) 
@@ -96,10 +98,13 @@ def compute_post(G, nodes, epsilon = 0.0):
     post = [noise_op] # a list with one value
     past_feed = nx.get_node_attributes(G, 'feed') #get all user feed
 
-    #Spread Opinion
+    # Spread Opinion
     all_neig = list(nx.neighbors(G, node_id))   #get all neighbours ID
 
-    
+    # We have to estimate again the {node_id} opinion, since it has 
+    # posted a new content
+    estim[node_id] = noise_op
+
     post_to_be_added = dict(zip(all_neig,
                                    [list(post) for _ in range(len(all_neig))] ))
 
@@ -111,6 +116,8 @@ def compute_post(G, nodes, epsilon = 0.0):
     # Debug print
     #print('POST ',  post_post_to_be_added)
     nx.set_node_attributes(G, post_post_to_be_added , name='feed')
+  nx.set_node_attributes(G, estim, name='to_estimate')
+  
   return G
 
 '''

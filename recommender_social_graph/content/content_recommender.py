@@ -41,7 +41,7 @@ Returns
 '''
 def content_recommender(G, act_nodes, strategy="random", strat_param={}):
     feed = nx.get_node_attributes(G, 'feed')
-    opinions = nx.get_node_attributes(G, 'opinion')
+    opinions = nx.get_node_attributes(G, 'estimated_opinion')
     beta = nx.get_node_attributes(G, 'beba_beta')
     new_feed = dict()
     for node_id in act_nodes:
@@ -180,7 +180,8 @@ Returns
     G : {networkx.Graph}
         The updated graph.
 '''
-def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random", strat_param = {}):
+def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random", strat_param = {},
+                                      estim_strategy = "base", estim_strat_param = {}):
     # Sampling randomly the activating nodes
     updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
     act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
@@ -202,4 +203,64 @@ def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_postin
 
     # Executing posting phase: activated nodes will post in their neighbours' feed
     G = compute_post(G, post_nodes, epsilon)
+    # Estimating opinion by the recommender
+    G = upd_estim(G, strategy = estim_strategy, strat_param = estim_strat_param)
+    return G
+
+
+def upd_estim(G, strategy = "base", strat_param = {}):
+    # New opinions to estimate (it contains the last content the nodes has posted
+    # in the last epoch)
+    to_estim = nx.get_node_attributes(G, name='to_estimate')
+    # Already estimated opinions by the recommender
+    estimated = nx.get_node_attributes(G, name='estimated_opinion')
+    if strategy == "base":
+        alpha = strat_param.get('alpha', 0.75)
+        for node_id in G.nodes():
+            last_post = to_estim.get(node_id, [])
+            estim_op = estimated.get(node_id, 0.0)
+            # If last_post is == [], then the node hasn't posted anything
+            # in the last epoch.
+            if not(last_post == []):
+                estimated[node_id] = estim_op * alpha + last_post * (1 - alpha)
+            to_estim[node_id] = []
+            
+    elif strategy == "kalman":
+        for node_id in G.nodes():
+            last_post = to_estim.get(node_id, [])
+            # If last_post is == [], then the node hasn't posted anything
+            # in the last epoch.
+            if not(last_post == []):
+                variance = strat_param.get('variance', 1e-5) # process variance
+                R = strat_param.get('variance_measure', 0.1 ** 2) # estimate of measurement variance, change to see effect
+                posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
+                posteri_error = nx.get_node_attributes(G, name='posteri_error')
+                # Opinion a posteri (represents the last estimation)
+                op_posteri = posteri_opinion.get(node_id, 0.0)
+                # Error a posteri (represents the last error value)
+                P_posteri = posteri_error.get(node_id, 1.0)
+
+
+                # Using last posteri values (adding variance to error) as priori in the new epoch
+                op_priori = op_posteri
+                P_priori = P_posteri + variance
+    
+                # measurement update
+                K = P_priori/(P_priori + R)
+                # Compute new opinion and error posteri
+                op_posteri = op_priori + K * (last_post - op_priori)
+                P_posteri = (1 - K) * P_priori
+
+                # Updating values obtained
+                estimated[node_id] = op_posteri
+                posteri_opinion[node_id] = op_posteri
+                posteri_error[node_id] = P_posteri
+                # Updating estimates
+                nx.set_node_attributes(G, op_posteri, name='posteri_opinion')
+                nx.set_node_attributes(G, P_posteri, name='posteri_error')
+            
+            to_estim[node_id] = []
+    # Updating estimated opinions
+    nx.set_node_attributes(G, to_estim, name='to_estimate')  
+    nx.set_node_attributes(G, estimated, name='estimated_opinion')
     return G
