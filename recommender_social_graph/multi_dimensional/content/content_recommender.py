@@ -4,9 +4,9 @@ import numpy as np
 from collections import defaultdict
 import random
 # Use this for notebook
-from multi_dimensional.abeba_methods import compute_activation, compute_post
-# Use this for test.py
-# from abeba_methods import compute_activation, compute_post
+# from multi_dimensional.abeba_methods import compute_activation, compute_post
+#Use this for test.py
+from abeba_methods import compute_activation, compute_post
 import math
 from tabulate import tabulate
 
@@ -57,11 +57,11 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       # Generating random recommended content in the range [-1, 1]
       # (n_post posts in the feed) 
       n_post = strat_param.get('n_post', 1)
-      post = [np.random.rand(ops) for i in range(n_post)]
       for i in range(n_post):
-        for opinion in range(ops):
-          post[i][opinion] = post[i][opinion] * 2 - 1
-      new_feed[node_id] = feed.get(node_id, []) + post
+        # For each post a random dimension is chosen 
+        op = random.randint(0, ops - 1)
+        opinion = random.uniform(-1.0, 1.0)
+        feed[node_id][op].append(opinion)
     elif strategy == "normal":
       normal_mean = strat_param.get('normal_mean', 0.0)
       normal_std = strat_param.get('normal_std', 0.1)
@@ -130,7 +130,7 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       max_distance = math.sqrt(4 * ops)
       new_feed[node_id] = [post for post in prev_feed if np.linalg.norm(curr_op - prev_feed) / max_distance >= unsimilar_thresh]
   # Updating feed with recommended content  
-  nx.set_node_attributes(G, new_feed , name='feed')
+  nx.set_node_attributes(G, feed , name='feed')
   return G
 
 '''
@@ -150,14 +150,16 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def monitor_feed(G, act_nodes):
+def monitor_feed(G, ops, act_nodes):
   feed = nx.get_node_attributes(G, 'feed')
   feed_history = nx.get_node_attributes(G, 'feed_history')
   for node_id in act_nodes:
     # Updating feed history for each activated nodes
-    curr_history = feed_history.get(node_id, [])
-    curr_feed = feed.get(node_id, [])
-    feed_history[node_id] = curr_history + curr_feed
+    curr_history = feed_history.get(node_id, [[] for i in range(ops)])
+    curr_feed = feed.get(node_id, [[] for i in range(ops)])
+    for op in range(ops):
+      result = curr_history[op] + curr_feed[op]
+      feed_history[node_id][op] = curr_history[op] + curr_feed[op]
   # Updating the history in the graph
   nx.set_node_attributes(G, feed_history, name='feed_history')
   return G
@@ -209,7 +211,7 @@ def simulate_epoch_content_recommender(G, ops, percent_updating_nodes, percent_p
   # Executing content recommender system on activated nodes
   G = content_recommender(G, ops, act_nodes, strategy, strat_param)
   # Monitoring feeds that are going to be cleared 
-  G = monitor_feed(G, act_nodes)
+  G = monitor_feed(G, ops, act_nodes)
   # Executing activation phase: activated nodes will consume their feed
   G = compute_activation(G, act_nodes, ops)
 

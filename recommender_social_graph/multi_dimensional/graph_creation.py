@@ -134,4 +134,8 @@ def create_graph(n_ag, ops=1,  beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta
   # Setting beba_beta as node attributes
   node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
   nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
+  node_feed = dict(zip(G.nodes(), [[[] for i in range(ops)] for j in range(n_ag)]))
+  nx.set_node_attributes(G, node_feed, 'feed')
+  node_feed_history = dict(zip(G.nodes(), [[[] for i in range(ops)] for j in range(n_ag)]))
+  nx.set_node_attributes(G, node_feed_history, 'feed_history')
   return G

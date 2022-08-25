@@ -1,0 +1,2 @@
+I feed ottengono la seguente forma:
+Per ogni nodo ho una lista di post per ogni dimensione, quella lista contiene i post per quella dimensione

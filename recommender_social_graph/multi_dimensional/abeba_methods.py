@@ -1,6 +1,7 @@
 import networkx as nx
 import numpy as np
 from tabulate import tabulate
+import random
 from graph_creation import create_graph
 
 
@@ -12,7 +13,7 @@ from graph_creation import create_graph
     update their opinion based on that content.
 
 Parameters
-----------
+--------
     G : {networkx.Graph}
         The graph containing the social network.
     nodes : {list of object}
@@ -32,36 +33,35 @@ def compute_activation(G, nodes, ops):
 
     # Activating update of each node
     for curr_node in nodes:
-        node_feeds = all_feeds.get(curr_node, [])
-
-    # Computing weight w(i, i)
-    # w[i][j] = beta[i] * dot_product(opinion[i], opinion[j]) + 1
-    weight_noose = beba_beta_list[curr_node] * np.dot(opinions[curr_node], opinions[curr_node]) / ops + 1
-
-    # Computing new opinion of curr_node
-    op_num = weight_noose * opinions[curr_node]
-    op_den = weight_noose
-    for feed in node_feeds:
-        # Computing weights w(i, j) where i == curr_node and y(j) == feed
-        weight = beba_beta_list[curr_node] * np.dot(feed, opinions[curr_node]) / ops + 1
-        op_num += weight * feed
-        op_den += weight
-
-    # If the denominator is < 0, the opinion gets polarized and 
-    # the value is set to sgn(opinions[curr_node])
-    if op_den <= 0:
-        for current_op in range(ops):
-            opinions[curr_node][current_op] = opinions[curr_node][current_op] / abs(opinions[curr_node][current_op])
-    else:
-        opinions[curr_node] = op_num / op_den
-
-    # Opinions are capped within [-1, 1] 
-    for current_op in range(ops):
-        if opinions[curr_node][current_op] < -1:
-            opinions[curr_node][current_op] = -1
-        if opinions[curr_node][current_op] > 1:
-            opinions[curr_node][current_op] = 1
-    all_feeds[curr_node] = []
+        node_feeds = all_feeds.get(curr_node, [[] for i in range(ops)])
+        # node_feeds is a list of lists
+        # node_feeds[i] contains the list of posts to consume for the dimension i 
+        for op in range(ops):
+            feed = node_feeds[op]
+            # If there are posts for this dimension
+            if len(feed) > 0:
+                weight_noose = beba_beta_list[curr_node] * opinions[curr_node][op] * opinions[curr_node][op] + 1
+                # Computing new opinion of curr_node
+                op_num = weight_noose * opinions[curr_node][op]
+                op_den = weight_noose
+                for single_post in feed:
+                    weight = beba_beta_list[curr_node] * single_post * opinions[curr_node][op] + 1
+                    op_num += weight * single_post
+                    op_den += weight
+                
+                # If the denominator is < 0, the opinion gets polarized and 
+                # the value is set to sgn(opinions[curr_node])
+                if op_den <= 0:
+                    opinions[curr_node][op] = opinions[curr_node][op] / abs(opinions[curr_node][op])
+                else:
+                    opinions[curr_node][op] = op_num / op_den
+            
+                # Opinions are capped within [-1, 1] 
+                if opinions[curr_node][op] < -1:
+                    opinions[curr_node][op] = -1
+                if opinions[curr_node][op] > 1:
+                    opinions[curr_node][op] = 1
+                all_feeds[curr_node] = [[] for i in range(ops)]
 
     # Updating feed and opinion attributes
     nx.set_node_attributes(G, all_feeds, 'feed')
@@ -98,27 +98,27 @@ Returns
 def compute_post(G, nodes, ops, epsilon = 0.0):
     opinions = nx.get_node_attributes(G, 'opinion')
     for node_id in nodes:
-        new_opinion = opinions[node_id]
-        for op in range(ops):
-            rand_eps = np.random.normal(0, epsilon, 1)
-            noise_op = rand_eps[0] + opinions[node_id][op]
-            noise_op = min(noise_op, 1)
-            noise_op = max(noise_op, -1)
-            new_opinion[op] = noise_op
-        post = [new_opinion]
+        # Post on only a random dimension 
+        op = random.randint(0, ops - 1)
+        # The posted value is the user opinion with normal distributed noise
+        new_opinion = opinions[node_id][op]
+        rand_eps = np.random.normal(0, epsilon, 1)
+        noise_op = rand_eps[0] + opinions[node_id][op]
+        noise_op = min(noise_op, 1)
+        noise_op = max(noise_op, -1)
+        new_opinion = noise_op
+
         past_feed = nx.get_node_attributes(G, 'feed')
 
         # Spread Opinion
         all_neig = list(nx.neighbors(G, node_id))   #get all neighbours ID
 
-        post_to_be_added = dict(zip(all_neig,
-                                   [list(post) for _ in range(len(all_neig))] ))
-        post_post_to_be_added = {key: past_feed[key] + value 
-                              if key in [*past_feed]
-                              else value
-                              for key, value in post_to_be_added.items()}
+        # The new post is inserted in the right dimension to each neighbour 
+        for neig in all_neig:
+            past_feed[neig][op].append(new_opinion)
 
-        nx.set_node_attributes(G, post_post_to_be_added , name='feed')
+        # Updating the feed, the structure reamins a dictionary of lists of lists
+        nx.set_node_attributes(G, past_feed , name='feed')
     return G
 
 

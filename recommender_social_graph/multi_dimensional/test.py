@@ -1,4 +1,5 @@
 from cProfile import label
+from cgi import test
 import matplotlib
 from tabulate import tabulate
 from graph_creation import *
@@ -26,7 +27,21 @@ def print_graph(G, print_labels=True):
         nx.draw(G, node_color=color_map, with_labels=True)
     plt.show()
 
+
+def test_graph():
+    nodes, ops = 50, 3
+    G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
+    print_graph(G, False)
+    random_param = {'n_post': 2}
+    for i in range(500):
+        G = simulate_epoch_content_recommender(G, ops, 50, 50, strat_param=random_param)
+        # simulate_epoch_updated(G, ops, 50, 50, 0)
+    print_graph(G, False)
+
+
 def main():
+    test_graph()
+    return 
     nodes, ops = 50, 3
     G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
     G = apply_initial_feed(G, ops, n_post=2)
