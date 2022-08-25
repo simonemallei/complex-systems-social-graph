@@ -32,10 +32,14 @@ def test_graph():
     nodes, ops = 50, 3
     G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
     print_graph(G, False)
-    random_param = {'n_post': 2}
-    for i in range(500):
-        G = simulate_epoch_content_recommender(G, ops, 50, 50, strat_param=random_param)
+    normal_param = {'normal_mean': 0.5, 'normal_std': 0.1, 'n_post': 2}
+    nudge_param = {'nudge_goal': 0.5, 'n_post': 2}
+    
+    for i in range(100):
+        G = simulate_epoch_content_recommender(G, ops, 50, 50, strategy='unsimilar', strat_param=nudge_param,
+            estim_strategy='kalman')
         # simulate_epoch_updated(G, ops, 50, 50, 0)
+    print(sum(feed_entropy(G, ops).values()) / nodes)
     print_graph(G, False)
 
 

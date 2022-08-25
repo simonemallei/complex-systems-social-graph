@@ -97,6 +97,7 @@ Returns
 
 def compute_post(G, nodes, ops, epsilon = 0.0):
     opinions = nx.get_node_attributes(G, 'opinion')
+    estim = nx.get_node_attributes(G, 'to_estimate')
     for node_id in nodes:
         # Post on only a random dimension 
         op = random.randint(0, ops - 1)
@@ -117,8 +118,12 @@ def compute_post(G, nodes, ops, epsilon = 0.0):
         for neig in all_neig:
             past_feed[neig][op].append(new_opinion)
 
+        # Using the new post for estimating the opinion
+        estim[node_id][op] = new_opinion
+
         # Updating the feed, the structure reamins a dictionary of lists of lists
         nx.set_node_attributes(G, past_feed , name='feed')
+        nx.set_node_attributes(G, estim, name='to_estimate')
     return G
 
 
@@ -192,7 +197,7 @@ Returns
     G : {networkx.Graph}
         The updated graph.
 '''
-
+# Don't use this 
 def apply_initial_feed(G, ops, n_post = 10, epsilon = 0.1):
   # Casting all the numpy arrays as built-in lists 
   initial_feed_dict = dict()
