@@ -1,3 +1,4 @@
+from cmath import nan
 import networkx as nx
 import numpy as np
 from tabulate import tabulate
@@ -35,6 +36,7 @@ def polarisation(G):
         means[opinion] /= n
     pol = 0
     for user in range(n):
+        # Cosine distance between each user's opinion and the mean
         pol += spatial.distance.cosine(means, opinions[user])
     return pol
 
@@ -64,6 +66,7 @@ def disagreement(G):
         disagreement = 0.0
         # For each node, we compute the disagreement in its neighbourhood
         for node_to in G.neighbors(node_from):
+            # Using euclidean distance for measuring distance between opinions 
             weight = beta[node_from] * np.dot(opinion[node_from], opinion[node_to]) / len(opinion[node_from]) + 1
             max_distance = math.sqrt(len(opinion[node_from]) * 4)
             disagreement += np.linalg.norm(opinion[node_from] - opinion[node_to]) / max_distance * weight
@@ -125,28 +128,22 @@ def feed_entropy(G, ops, n_buckets=4, max_len_history=30):
     entropy_dict = {}
     for node in G.nodes():
         # Computing entropy for each non-empty feed history
-        curr_history = feed_history.get(node, [])
-        len_feed = len(curr_history)
-        # if the feed history is empty, the entropy has NaN value
-        if len_feed == 0:
-            entropy_dict[node] = float('nan')
+        curr_history = feed_history.get(node, [[] for i in range(ops)])
+        entropy_sum = 0.0
+        cnt = 0
+        for op in range(ops):
+            if len(curr_history[op]) != 0:
+                cnt += 1
+                if len(curr_history[op]) > max_len_history:
+                    curr_history[op] = curr_history[op][-max_len_history:]
+                buckets = [0] * n_buckets
+                for content in curr_history[op]:
+                    buck_idx = min(n_buckets - 1, int((content + 1.0)* n_buckets / 2))
+                    buckets[buck_idx] += 1
+                buckets = [buck/len(curr_history[op]) for buck in buckets]
+                entropy_sum  += entropy(buckets, base = n_buckets)
+        if cnt > 0:
+            entropy_dict[node] = entropy_sum / cnt
         else:
-            # if the history's length is greater than the maximum,
-            # we'll consider the {max_len_history} newest ones
-            if len_feed >= max_len_history:
-                curr_history = curr_history[-max_len_history:]
-                len_feed = max_len_history
-            counter_list = []
-            for content in curr_history:
-                hash = 0
-                for opinion in range(ops):
-                    index = int((content[opinion] + 1.0) * n_buckets / 2)
-                    hash = hash * n_buckets + index
-                counter_list.append(hash)
-            counter = Counter(counter_list)
-
-            buckets = []
-            for non_empty_bucket in counter:
-                buckets.append(counter[non_empty_bucket] / len_feed)
-            entropy_dict[node] = entropy(buckets, base = n_buckets ** ops)
+            entropy_dict[node] = nan
     return entropy_dict

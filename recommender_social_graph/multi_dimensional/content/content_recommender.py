@@ -4,9 +4,9 @@ import numpy as np
 from collections import defaultdict
 import random
 # Use this for notebook
-# from multi_dimensional.abeba_methods import compute_activation, compute_post
+from multi_dimensional.abeba_methods import compute_activation, compute_post
 #Use this for test.py
-from abeba_methods import compute_activation, compute_post
+# from abeba_methods import compute_activation, compute_post
 import math
 from tabulate import tabulate
 
@@ -49,7 +49,7 @@ Returns
 
 def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
   feed = nx.get_node_attributes(G, 'feed')
-  opinions = nx.get_node_attributes(G, 'opinion')
+  opinions = nx.get_node_attributes(G, 'estimated_opinion')
   beta = nx.get_node_attributes(G, 'beba_beta')
   new_feed = dict()
   for node_id in act_nodes:
@@ -59,7 +59,7 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       n_post = strat_param.get('n_post', 1)
       for i in range(n_post):
         # For each post a random dimension is chosen 
-        op = random.randint(0, ops - 1)
+        op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
         opinion = random.uniform(-1.0, 1.0)
         feed[node_id][op].append(opinion)
     elif strategy == "normal":
@@ -68,67 +68,52 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       # Generating recommended content using a normal distribution with
       # the following parameters: mean = {normal_mean}, std = {normal_std}
       # (n_post posts in the feed) 
-      post = []
       n_post = strat_param.get('n_post', 1)
       for i in range(n_post):
-        recommend_cont = np.random.normal(normal_mean, normal_std, ops)
-        for op in range(ops):
-          recommend_cont[op] = min(1, max(-1, recommend_cont[op]))
-        post.append(recommend_cont)
-      new_feed[node_id] = feed.get(node_id, []) + post
+        op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
+        recommend_cont = np.random.normal(normal_mean, normal_std, 1)[0]
+        recommend_cont = min(1, max(-1, recommend_cont))
+        feed[node_id][op].append(recommend_cont)
     elif strategy == 'nudge':
       # Generating recommended content using a normal distribution with
       # the following parameters: mean = {nudge_mean}, std = {nudge_std}
       # (n_post posts in the feed)
       curr_op = opinions[node_id]
-      nudge_goal = strat_param.get('nudge_goal', np.zeros(ops))
-      max_dist = math.sqrt(4 * ops)
-      dist = np.linalg.norm(curr_op - nudge_goal) / max_dist
-      nudge_std = (dist / 4 * (1 / (2 ** beta[node_id])))
+      nudge_goal = strat_param.get('nudge_goal', 0.0)
+      op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
+      nudge_std = (abs(nudge_goal - curr_op[op]) / 4) * (1 / (2 ** beta[node_id]))
       n_post = strat_param.get('n_post', 1)
-      post = []
-      for i in range(n_post):
-        current = np.zeros(ops)
-        for opinion in range(ops):
-          current[opinion] = np.random.normal(nudge_goal[opinion], nudge_std)
-          current[opinion] = min(1, max(-1, current[opinion]))
-        post.append(current)
-      new_feed[node_id] = feed.get(node_id, []) + post
+      to_add = [min(1, max(-1, np.random.normal(nudge_goal, nudge_std))) for _ in range(n_post)]
+      feed[node_id][op] += to_add
     elif strategy == 'nudge_opt':
+      # Generating recommended content using a normal distribution with
+      # the following parameters: mean = {nudge_mean}, std = {nudge_std}
+      # (n_post posts in the feed)
       curr_op = opinions[node_id]
-      nudge_goal = strat_param.get('nudge_goal', np.zeros(ops))
-      copy_goal = np.copy(nudge_goal)
-      for opinion in range(ops):
-        if curr_op[opinion] * copy_goal[opinion] < 0.0:
-          copy_goal[opinion] = 0.0
-      max_dist = math.sqrt(4 * ops)
-      dist = np.linalg.norm(curr_op - copy_goal) / max_dist
-      nudge_std = (dist / 4 * (1 / (2 ** beta[node_id])))
+      nudge_goal = strat_param.get('nudge_goal', 0.0)
+      op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
+      if nudge_goal * curr_op[op] < 0:
+        nudge_goal = 0.0
+      nudge_std = (abs(nudge_goal - curr_op[op]) / 4) * (1 / (2 ** beta[node_id]))
       n_post = strat_param.get('n_post', 1)
-      post = []
-      for i in range(n_post):
-        current = np.zeros(ops)
-        for opinion in range(ops):
-          current[opinion] = np.random.normal(copy_goal[opinion], nudge_std)
-          current[opinion] = min(1, max(-1, current[opinion]))
-        post.append(current)
-      new_feed[node_id] = feed.get(node_id, []) + post
+      to_add = [min(1, max(-1, np.random.normal(nudge_goal, nudge_std))) for _ in range(n_post)]
+      feed[node_id][op] += to_add
     elif strategy == "similar":
       similar_thresh = strat_param.get('similar_thresh', 0.5)
+      op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
       curr_op = opinions[node_id]
       # Deleting content that is too far away from the node's opinion (measuring the distance
       # as the absolute difference between the content's opinion and the node's one) 
-      prev_feed = feed.get(node_id, [])
-      max_distance = math.sqrt(4 * ops)
-      new_feed[node_id] = [post for post in prev_feed if np.linalg.norm(curr_op - post) / max_distance <= similar_thresh]
+      correct = [post for post in feed[node_id][op] if abs(post - curr_op[op]) <= similar_thresh]
+      feed[node_id][op] = correct
     elif strategy == "unsimilar":
       unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
+      op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
       curr_op = opinions[node_id]
       # Deleting content that is too close from the node's opinion (measuring the distance
       # as the absolute difference between the content's opinion and the node's one) 
-      prev_feed = feed.get(node_id, [])
-      max_distance = math.sqrt(4 * ops)
-      new_feed[node_id] = [post for post in prev_feed if np.linalg.norm(curr_op - prev_feed) / max_distance >= unsimilar_thresh]
+      correct = [post for post in feed[node_id][op] if abs(post - curr_op[op]) >= unsimilar_thresh]
+      feed[node_id][op] = correct
   # Updating feed with recommended content  
   nx.set_node_attributes(G, feed , name='feed')
   return G
@@ -203,7 +188,8 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def simulate_epoch_content_recommender(G, ops, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random", strat_param = {}):
+def simulate_epoch_content_recommender(G, ops, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, 
+      strategy = "random", strat_param = {}, estim_strategy='base', estim_strat_param={}):
   # Sampling randomly the activating nodes
   updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
   act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
@@ -221,4 +207,68 @@ def simulate_epoch_content_recommender(G, ops, percent_updating_nodes, percent_p
 
   # Executing posting phase: activated nodes will post in their neighbours' feed
   G = compute_post(G, post_nodes, ops, epsilon)
+
+  # Updating estimated opinion 
+  G = upd_estim(G, ops, strategy=estim_strategy, strat_param=estim_strat_param)
+  return G
+
+
+
+def upd_estim(G, ops, strategy = "base", strat_param = {}):
+  # New opinions to estimate (it contains the last content the nodes has posted
+  # in the last epoch)
+
+  # to_esimate is a dictionary which contains, for each node, a post for each dimension
+  to_estim = nx.get_node_attributes(G, name='to_estimate')
+  # Already estimated opinions by the recommender
+  # estimated_opinion is a dictionary which contains, for each node, a list of the estimated opinions
+  estimated = nx.get_node_attributes(G, name='estimated_opinion')
+  if strategy == "base":
+    alpha = strat_param.get('alpha', 0.75)
+    for node_id in G.nodes():
+      last_post = to_estim.get(node_id, [[] for i in range(ops)])
+      estim_op = estimated.get(node_id, [0.0] * ops)
+      for op in range(ops):
+      # If last_post is == [], then the node hasn't posted anything in the last epoch.
+        if not(last_post[op] == []):
+          result = estim_op[op] * alpha + last_post[op] * (1 - alpha)
+          estimated[node_id][op] = estim_op[op] * alpha + last_post[op] * (1 - alpha)
+        to_estim[node_id][op] = []
+  elif strategy == "kalman":
+    for node_id in G.nodes():
+      last_post = to_estim.get(node_id, [[] for i in range(ops)])
+      # If last_post is == [], then the node hasn't posted anything
+      # in the last epoch.
+      for op in range(ops):
+        if not(last_post[op] == []):
+          variance = strat_param.get('variance', 1e-5) # process variance
+          R = strat_param.get('variance_measure', 0.1 ** 2) # estimate of measurement variance, change to see effect
+          posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
+          posteri_error = nx.get_node_attributes(G, name='posteri_error')
+          # Opinion a posteri (represents the last estimation)
+          op_posteri = posteri_opinion.get(node_id)
+          # Error a posteri (represents the last error value)
+          P_posteri = posteri_error.get(node_id)
+          # Using last posteri values (adding variance to error) as priori in the new epoch
+          op_priori = op_posteri[op]
+          P_priori = P_posteri[op] + variance
+
+          # measurement update
+          K = P_priori/(P_priori + R)
+          # Compute new opinion and error posteri
+          op_posteri[op] = op_priori + K * (last_post[op] - op_priori)
+          P_posteri[op] = (1 - K) * P_priori
+
+          # Updating values obtained
+          estimated[node_id][op] = op_posteri[op]
+          posteri_opinion[node_id][op] = op_posteri[op]
+          posteri_error[node_id][op] = P_posteri[op]
+          # Updating estimates
+          nx.set_node_attributes(G, op_posteri, name='posteri_opinion')
+          nx.set_node_attributes(G, P_posteri, name='posteri_error')
+          
+        to_estim[node_id][op] = []
+  # Updating estimated opinions
+  nx.set_node_attributes(G, to_estim, name='to_estimate')  
+  nx.set_node_attributes(G, estimated, name='estimated_opinion')
   return G

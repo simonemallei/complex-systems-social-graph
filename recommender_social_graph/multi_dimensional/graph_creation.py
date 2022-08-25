@@ -131,11 +131,19 @@ def create_graph(n_ag, ops=1,  beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta
   # Calls MY_homophilic_ba_graph
   G = MY_homophilic_ba_graph(n_ag, avg_friend, ops, hp_alpha, hp_beta)
 
-  # Setting beba_beta as node attributes
+  # Setting initial attributes for the graph
   node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
   nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
   node_feed = dict(zip(G.nodes(), [[[] for i in range(ops)] for j in range(n_ag)]))
   nx.set_node_attributes(G, node_feed, 'feed')
   node_feed_history = dict(zip(G.nodes(), [[[] for i in range(ops)] for j in range(n_ag)]))
   nx.set_node_attributes(G, node_feed_history, 'feed_history')
+  to_estim = dict(zip(G.nodes(), [[[] for i in range(ops)] for j in range(n_ag)]))
+  nx.set_node_attributes(G, to_estim, 'to_estimate')
+  estimated = dict(zip(G.nodes(), [[0.0] * ops for j in range(n_ag)]))
+  nx.set_node_attributes(G, estimated, 'estimated_opinion')
+  posteri_opinion = dict(zip(G.nodes(), [[0.0 for i in range(ops)] for j in range(n_ag)]))
+  posteri_error = dict(zip(G.nodes(), [[1.0 for i in range(ops)] for j in range(n_ag)]))
+  nx.set_node_attributes(G, posteri_opinion, 'posteri_opinion')
+  nx.set_node_attributes(G, posteri_error, 'posteri_error')
   return G
