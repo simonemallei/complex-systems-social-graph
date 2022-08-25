@@ -33,7 +33,7 @@ Returns
   all_new_friends_list_unique : {list of ints}
       the list the list of node ids that are exactly at x hops according to the starting nodes
 '''
-def x_hop_neighbors(G, nodes, x_hop, previous_nodes = None):
+""" def x_hop_neighbors(G, nodes, x_hop, previous_nodes = None):
     all_friends_list = []
     if previous_nodes is None:
         previous_nodes = nodes
@@ -47,7 +47,19 @@ def x_hop_neighbors(G, nodes, x_hop, previous_nodes = None):
         return all_new_friends_list_unique
     else:
         previous_nodes += friends
-        return x_hop_neighbors(G, all_new_friends_list_unique, x_hop-1, previous_nodes)
+        return x_hop_neighbors(G, all_new_friends_list_unique, x_hop-1, previous_nodes) """
+
+def x_hop_neighbors(G, nodes, x_hop):
+    all_friends_list = []
+    for node in nodes:
+        friends = list(nx.neighbors(G, node))
+        all_friends_list += friends
+        all_friends_list_unique = list(dict.fromkeys(all_friends_list))
+    if x_hop == 1:
+        return all_friends_list_unique
+    else:
+        return x_hop_neighbors(G, all_friends_list_unique, x_hop-1)
+
 
 
 '''
@@ -101,9 +113,10 @@ def people_recommender(G, nodes, strategy="random"):
         # I need to understand what kind of nodes are accepted and then returned by the x_hop_neighbors method
         elif strategy == 'topology_based':
             overlapping_dict = {}
-            x_hop_neighbors_list = x_hop_neighbors(G, [node_id], 3)
-            x_hop_not_friends = [x for x in x_hop_neighbors_list if x in not_friends]
-            for not_friend in x_hop_not_friends:
+            three_hop_neighbors_list = x_hop_neighbors(G, [node_id], 3)
+            # note that the current node is considered a friend of itself, therefore excluded
+            three_hop_not_friends = [x for x in three_hop_neighbors_list if x in not_friends]
+            for not_friend in three_hop_not_friends:
                 not_friend_neigs = list(nx.neighbors(G, not_friend))
                 # the number of mutual friendly nodes is given by the length of the intersection between the two friend lists
                 # note that neither of the two lists can have duplicates
