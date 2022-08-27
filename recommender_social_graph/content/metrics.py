@@ -185,3 +185,56 @@ def feed_satisfaction_weight(G, max_len_history = 20):
             max_sat = (max_x ** cd_alpha) * (((pos_sum + neg_sum) - max_x) ** cd_beta) 
             sat_dict[node] = utility / max_sat
     return sat_dict
+
+'''
+sigmoid_satisfaction returns a satisfaction metric that uses the 
+sigmoid function for each weight between a node and a post in its feed 
+(using the ABEBA model formula). 
+It is defined as sigmoid(({weight} - 1) * {stretch_rate}), where stretch_rate
+is a stretching rate of the sigmoid function.
+
+Parameters
+----------
+    G : {networkx.Graph}
+        The graph containing the feed history to measure.
+    max_len_history : {int}, default : 20
+        Maximum length of the feed history considered (if we have
+        more than {max_len_history} posts, we'll consider
+        the {max_len_history} newest ones).
+    stretch_rate : {float}, default : 3.0
+        The stretching rate of the sigmoid function used as satisfaction measure.
+  
+Returns
+-------
+    sat_dict : {dict}
+        The dictionary containing for each graph's node the 
+        satisfaction value of its feed history.
+'''
+def sigmoid_satisfaction(G, max_len_history = 20, stretch_rate = 3.0):
+    feed_history = nx.get_node_attributes(G, 'feed_history')
+    beta = nx.get_node_attributes(G, 'beba_beta')
+    opinion = nx.get_node_attributes(G, 'opinion')
+    sat_dict = {}
+    for node in G.nodes():
+        curr_history = np.array(feed_history.get(node, []))
+        len_feed = len(curr_history)
+        # if the feed history is empty, the satisfaction has NaN value
+        if len_feed == 0:
+            sat_dict[node] = float('nan')
+        else:
+            # if the history's length is greater than the maximum,
+            # we'll consider the {max_len_history} newest ones
+            if len_feed >= max_len_history:
+                curr_history = curr_history[-max_len_history:]
+                len_feed = max_len_history
+            # computing weights of each content and then the satisfaction defined as:
+            # f(weight) = sigmoid((weight - 1) * stretch_rate)
+            weights = curr_history * opinion[node] * beta[node] + 1
+            sig_x = (weights - 1) * stretch_rate
+            sat_values = np.where(sig_x < 0, 
+                                  np.exp(sig_x) / (1 + np.exp(sig_x)), 
+                                  1 / (1 + np.exp(-sig_x)))
+            sat_dict[node] = np.mean(sat_values)
+    return sat_dict
+
+    
