@@ -139,13 +139,21 @@ Returns
 def monitor_feed(G, act_nodes):
     feed = nx.get_node_attributes(G, 'feed')
     feed_history = nx.get_node_attributes(G, 'feed_history')
+    feed_epoch = nx.get_node_attributes(G, 'feed_epoch')
     for node_id in act_nodes:
         # Updating feed history for each activated nodes
+        curr_feed_epoch = feed_epoch.get(node_id, [])
         curr_history = feed_history.get(node_id, [])
         curr_feed = feed.get(node_id, [])
         feed_history[node_id] = curr_history + curr_feed
+        curr_epoch = 0
+        if not(curr_feed_epoch == []):
+            curr_epoch = curr_feed_epoch[-1] + 1
+        feed_epoch[node_id] = curr_feed_epoch + [curr_epoch for _ in range(len(curr_feed))]
+
     # Updating the history in the graph
     nx.set_node_attributes(G, feed_history, name='feed_history')
+    nx.set_node_attributes(G, feed_epoch, name='feed_epoch')
     return G
   
 '''
