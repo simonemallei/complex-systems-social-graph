@@ -3,6 +3,7 @@ import numpy as np
 from collections import defaultdict
 import random
 from abeba_methods import compute_activation, compute_post
+from estimation import upd_estim
 '''
 content_recommender performs the recommender system by content.
 It performs the recommendation routine on the nodes contained 
@@ -69,7 +70,8 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
             # the following parameters: mean = {nudge_mean}, std = {nudge_std}
             # (n_post posts in the feed) 
             nudge_goal = strat_param.get('nudge_goal', 0.0)
-            nudge_std = (abs(nudge_goal - opinions[node_id]) / 4 
+            node_op = opinions.get(node_id, 0.0)
+            nudge_std = (abs(nudge_goal - node_op) / 4 
                          * (1 / (2 ** beta[node_id])))
             n_post = strat_param.get('n_post', 1)
             
@@ -81,9 +83,10 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
             # the following parameters: mean = {nudge_mean}, std = {nudge_std}
             # (n_post posts in the feed) 
             nudge_goal = strat_param.get('nudge_goal', 0.0)
-            if (opinions[node_id] * nudge_goal) < 0.0:
+            node_op = opinions.get(node_id, 0.0)
+            if (node_op * nudge_goal) < 0.0:
                 nudge_goal = 0.0
-            nudge_std = (abs(nudge_goal - opinions[node_id]) / 4 
+            nudge_std = (abs(nudge_goal - node_op) / 4 
                          * (1 / (2 ** beta[node_id])))
             n_post = strat_param.get('n_post', 1)
             
@@ -92,20 +95,28 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
             new_feed[node_id] = feed.get(node_id, []) + post
         elif strategy == "similar":
             similar_thresh = strat_param.get('similar_thresh', 0.5)
-            curr_op = opinions[node_id]
+            curr_op = opinions.get(node_id, [])
             # Deleting content that is too far away from the node's opinion (measuring the distance
-            # as the absolute difference between the content's opinion and the node's one) 
-            prev_feed = feed.get(node_id, [])
-            new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
+            # as the absolute difference between the content's opinion and the node's one)
+            # if we haven't estimated yet its opinion, there are no posts removed from the feed
+            if (curr_op == []):
+                new_feed[node_id] = feed.get(node_id, [])
+            else:
+                prev_feed = feed.get(node_id, [])
+                new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
         elif strategy == "unsimilar":
             unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
-            curr_op = opinions[node_id]
+            curr_op = opinions.get(node_id, [])
             # Deleting content that is too close from the node's opinion (measuring the distance
             # as the absolute difference between the content's opinion and the node's one) 
-            prev_feed = feed.get(node_id, [])
-            new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
+            # if we haven't estimated yet its opinion, there are no posts removed from the feed
+            if (curr_op == []):
+                new_feed[node_id] = feed.get(node_id, [])
+            else:
+                prev_feed = feed.get(node_id, [])
+                new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
     # Updating feed with recommended content  
-    nx.set_node_attributes(G, new_feed , name='feed')
+    nx.set_node_attributes(G, new_feed, name='feed')
     return G
 
 '''
@@ -128,13 +139,21 @@ Returns
 def monitor_feed(G, act_nodes):
     feed = nx.get_node_attributes(G, 'feed')
     feed_history = nx.get_node_attributes(G, 'feed_history')
+    feed_epoch = nx.get_node_attributes(G, 'feed_epoch')
     for node_id in act_nodes:
         # Updating feed history for each activated nodes
+        curr_feed_epoch = feed_epoch.get(node_id, [])
         curr_history = feed_history.get(node_id, [])
         curr_feed = feed.get(node_id, [])
         feed_history[node_id] = curr_history + curr_feed
+        curr_epoch = 0
+        if not(curr_feed_epoch == []):
+            curr_epoch = curr_feed_epoch[-1] + 1
+        feed_epoch[node_id] = curr_feed_epoch + [curr_epoch for _ in range(len(curr_feed))]
+
     # Updating the history in the graph
     nx.set_node_attributes(G, feed_history, name='feed_history')
+    nx.set_node_attributes(G, feed_epoch, name='feed_epoch')
     return G
   
 '''
@@ -205,62 +224,4 @@ def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_postin
     G = compute_post(G, post_nodes, epsilon)
     # Estimating opinion by the recommender
     G = upd_estim(G, strategy = estim_strategy, strat_param = estim_strat_param)
-    return G
-
-
-def upd_estim(G, strategy = "base", strat_param = {}):
-    # New opinions to estimate (it contains the last content the nodes has posted
-    # in the last epoch)
-    to_estim = nx.get_node_attributes(G, name='to_estimate')
-    # Already estimated opinions by the recommender
-    estimated = nx.get_node_attributes(G, name='estimated_opinion')
-    if strategy == "base":
-        alpha = strat_param.get('alpha', 0.75)
-        for node_id in G.nodes():
-            last_post = to_estim.get(node_id, [])
-            estim_op = estimated.get(node_id, 0.0)
-            # If last_post is == [], then the node hasn't posted anything
-            # in the last epoch.
-            if not(last_post == []):
-                estimated[node_id] = estim_op * alpha + last_post * (1 - alpha)
-            to_estim[node_id] = []
-            
-    elif strategy == "kalman":
-        for node_id in G.nodes():
-            last_post = to_estim.get(node_id, [])
-            # If last_post is == [], then the node hasn't posted anything
-            # in the last epoch.
-            if not(last_post == []):
-                variance = strat_param.get('variance', 1e-5) # process variance
-                R = strat_param.get('variance_measure', 0.1 ** 2) # estimate of measurement variance, change to see effect
-                posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
-                posteri_error = nx.get_node_attributes(G, name='posteri_error')
-                # Opinion a posteri (represents the last estimation)
-                op_posteri = posteri_opinion.get(node_id, 0.0)
-                # Error a posteri (represents the last error value)
-                P_posteri = posteri_error.get(node_id, 1.0)
-
-
-                # Using last posteri values (adding variance to error) as priori in the new epoch
-                op_priori = op_posteri
-                P_priori = P_posteri + variance
-    
-                # measurement update
-                K = P_priori/(P_priori + R)
-                # Compute new opinion and error posteri
-                op_posteri = op_priori + K * (last_post - op_priori)
-                P_posteri = (1 - K) * P_priori
-
-                # Updating values obtained
-                estimated[node_id] = op_posteri
-                posteri_opinion[node_id] = op_posteri
-                posteri_error[node_id] = P_posteri
-                # Updating estimates
-                nx.set_node_attributes(G, op_posteri, name='posteri_opinion')
-                nx.set_node_attributes(G, P_posteri, name='posteri_error')
-            
-            to_estim[node_id] = []
-    # Updating estimated opinions
-    nx.set_node_attributes(G, to_estim, name='to_estimate')  
-    nx.set_node_attributes(G, estimated, name='estimated_opinion')
     return G
