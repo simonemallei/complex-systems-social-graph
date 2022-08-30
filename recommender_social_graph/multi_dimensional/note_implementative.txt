@@ -1,2 +1,6 @@
 I feed ottengono la seguente forma:
 Per ogni nodo ho una lista di post per ogni dimensione, quella lista contiene i post per quella dimensione
+
+
+In opinion diversity come classifico la distanza tra l'opinione di due persone come la somma dei quadrati delle 
+differenze delle loro opinioni?

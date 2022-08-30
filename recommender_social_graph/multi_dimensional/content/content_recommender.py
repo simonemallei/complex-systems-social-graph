@@ -1,3 +1,4 @@
+from email.headerregistry import UniqueUnstructuredHeader
 from platform import node
 import networkx as nx
 import numpy as np
@@ -5,8 +6,10 @@ from collections import defaultdict
 import random
 # Use this for notebook
 from multi_dimensional.abeba_methods import compute_activation, compute_post
+from multi_dimensional.estimation import upd_estim
 #Use this for test.py
-# from abeba_methods import compute_activation, compute_post
+#from abeba_methods import compute_activation, compute_post
+#from estimation import upd_estim
 import math
 from tabulate import tabulate
 
@@ -210,65 +213,6 @@ def simulate_epoch_content_recommender(G, ops, percent_updating_nodes, percent_p
 
   # Updating estimated opinion 
   G = upd_estim(G, ops, strategy=estim_strategy, strat_param=estim_strat_param)
+
   return G
 
-
-
-def upd_estim(G, ops, strategy = "base", strat_param = {}):
-  # New opinions to estimate (it contains the last content the nodes has posted
-  # in the last epoch)
-
-  # to_esimate is a dictionary which contains, for each node, a post for each dimension
-  to_estim = nx.get_node_attributes(G, name='to_estimate')
-  # Already estimated opinions by the recommender
-  # estimated_opinion is a dictionary which contains, for each node, a list of the estimated opinions
-  estimated = nx.get_node_attributes(G, name='estimated_opinion')
-  if strategy == "base":
-    alpha = strat_param.get('alpha', 0.75)
-    for node_id in G.nodes():
-      last_post = to_estim.get(node_id, [[] for i in range(ops)])
-      estim_op = estimated.get(node_id, [0.0] * ops)
-      for op in range(ops):
-      # If last_post is == [], then the node hasn't posted anything in the last epoch.
-        if not(last_post[op] == []):
-          result = estim_op[op] * alpha + last_post[op] * (1 - alpha)
-          estimated[node_id][op] = estim_op[op] * alpha + last_post[op] * (1 - alpha)
-        to_estim[node_id][op] = []
-  elif strategy == "kalman":
-    for node_id in G.nodes():
-      last_post = to_estim.get(node_id, [[] for i in range(ops)])
-      # If last_post is == [], then the node hasn't posted anything
-      # in the last epoch.
-      for op in range(ops):
-        if not(last_post[op] == []):
-          variance = strat_param.get('variance', 1e-5) # process variance
-          R = strat_param.get('variance_measure', 0.1 ** 2) # estimate of measurement variance, change to see effect
-          posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
-          posteri_error = nx.get_node_attributes(G, name='posteri_error')
-          # Opinion a posteri (represents the last estimation)
-          op_posteri = posteri_opinion.get(node_id)
-          # Error a posteri (represents the last error value)
-          P_posteri = posteri_error.get(node_id)
-          # Using last posteri values (adding variance to error) as priori in the new epoch
-          op_priori = op_posteri[op]
-          P_priori = P_posteri[op] + variance
-
-          # measurement update
-          K = P_priori/(P_priori + R)
-          # Compute new opinion and error posteri
-          op_posteri[op] = op_priori + K * (last_post[op] - op_priori)
-          P_posteri[op] = (1 - K) * P_priori
-
-          # Updating values obtained
-          estimated[node_id][op] = op_posteri[op]
-          posteri_opinion[node_id][op] = op_posteri[op]
-          posteri_error[node_id][op] = P_posteri[op]
-          # Updating estimates
-          nx.set_node_attributes(G, op_posteri, name='posteri_opinion')
-          nx.set_node_attributes(G, P_posteri, name='posteri_error')
-          
-        to_estim[node_id][op] = []
-  # Updating estimated opinions
-  nx.set_node_attributes(G, to_estim, name='to_estimate')  
-  nx.set_node_attributes(G, estimated, name='estimated_opinion')
-  return G
