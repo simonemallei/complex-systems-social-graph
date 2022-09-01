@@ -17,7 +17,7 @@ Parameters
         The graph containing the social network.
     act_nodes : {list of object}
         The list containing activated nodes' IDs (dictionary keys).
-    strategy : {"random", "normal", "nudge", "nudge_opt", "similar", "unsimilar"} default: "random"
+    strategy : {"random", "normal", "nudge", "similar", "unsimilar"} default: "random"
         The string that defines the strategy used by the recommender system.
     strat_param : {dictionary}
         The dictionary containing the parameters value used by the recommender, based
@@ -71,26 +71,11 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
             # (n_post posts in the feed) 
             nudge_goal = strat_param.get('nudge_goal', 0.0)
             node_op = opinions.get(node_id, 0.0)
-            nudge_std = (abs(nudge_goal - node_op) / 4 
-                         * (1 / (2 ** beta[node_id])))
+            nudge_mean = (nudge_goal + node_op) / 2
+            nudge_std = abs(nudge_mean - node_op) / 8
             n_post = strat_param.get('n_post', 1)
             
-            post = [min(1, max(-1, np.random.normal(nudge_goal, nudge_std))) 
-                    for _ in range(n_post)]
-            new_feed[node_id] = feed.get(node_id, []) + post
-        elif strategy == "nudge_opt":
-            # Generating recommended content using a normal distribution with
-            # the following parameters: mean = {nudge_mean}, std = {nudge_std}
-            # (n_post posts in the feed) 
-            nudge_goal = strat_param.get('nudge_goal', 0.0)
-            node_op = opinions.get(node_id, 0.0)
-            if (node_op * nudge_goal) < 0.0:
-                nudge_goal = 0.0
-            nudge_std = (abs(nudge_goal - node_op) / 4 
-                         * (1 / (2 ** beta[node_id])))
-            n_post = strat_param.get('n_post', 1)
-            
-            post = [min(1, max(-1, np.random.normal(nudge_goal, nudge_std))) 
+            post = [min(1, max(-1, np.random.normal(nudge_mean, nudge_std))) 
                     for _ in range(n_post)]
             new_feed[node_id] = feed.get(node_id, []) + post
         elif strategy == "similar":
@@ -193,6 +178,17 @@ Parameters
               value: threshold value used by "similar" strategy.
             - key: "unsimilar_thresh",
               value: threshold value used by "unsimilar" strategy.
+    estim_strategy : {"base", "kalman"} default: "base"
+        The string that defines the estimation strategy used by the recommender system.
+    estim_strat_param : {dictionary}
+        The dictionary containing the parameters value used by the recommender, based
+        on {estim_strategy} value.
+            - key: "alpha",
+              value: alpha coefficient used in "base" estimation strategy.
+            - key: "variance",
+              value: process variance of "kalman" estimation strategy.
+            - key: "variance_measure",
+              value: measure variance of "kalman" estimation strategy.
 
 Returns
 -------
