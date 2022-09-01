@@ -57,7 +57,7 @@ def feed_entropy(G, n_buckets=10, max_len_history=30):
 '''
 feed_satisfaction returns a satisfaction metric that uses the ABEBA weight 
 between a node and a post in its feed, the node's opinion and its bias (beta). 
-It is defined as {weight} / ((1 + {beta[node]}) * abs({opinion[node]}))
+It is defined as {weight} / (1 + {beta[node]} * {opinion[node]}).
 
 Parameters
 ----------
@@ -67,6 +67,9 @@ Parameters
         Maximum length of the feed history considered (if we have
         more than {max_len_history} posts, we'll consider
         the {max_len_history} newest ones).
+    sat_alpha : {float}, default : 0.75
+        Alpha coefficient used to weight previous satisfaction
+        of the node to compute the current one.
   
 Returns
 -------
@@ -74,7 +77,7 @@ Returns
         The dictionary containing for each graph's node the 
         satisfaction value of its feed history.
 '''
-def feed_satisfaction(G, max_len_history = 10):
+def feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75):
     feed_history = nx.get_node_attributes(G, 'feed_history')
     beta = nx.get_node_attributes(G, 'beba_beta')
     opinion = nx.get_node_attributes(G, 'opinion')
@@ -91,12 +94,14 @@ def feed_satisfaction(G, max_len_history = 10):
             if len_feed >= max_len_history:
                 curr_history = curr_history[-max_len_history:]
                 len_feed = max_len_history
-            # computing weights of each content and then the satisfaction defined as:
-            # f(weight) = (weights) / ((1 + beta[node]) * abs(opinion[node]))
+            # computing weights of each content and then the function is defined as:
+            # f(weight) = (weights) / (1 + beta[node] * opinion[node])
+            # afterwards, we compute satisfaction as:
+            # sat[node] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
             weights = curr_history * opinion[node] * beta[node] + 1
-            sig_x = (weights) / ((1 + beta[node]) * abs(opinion[node]))
-            sat_dict[node] = np.mean(sig_x)
+            sig_x = (weights) / (1 + beta[node] * opinion[node])
+            satisf = sat_dict.get(node, np.mean(sig_x))
+            sat_dict[node] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
 
     return sat_dict
-
     
