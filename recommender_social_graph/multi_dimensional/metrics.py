@@ -37,7 +37,7 @@ def polarisation(G):
     pol = 0
     for user in range(n):
         # Cosine distance between each user's opinion and the mean
-        pol += spatial.distance.cosine(means, opinions[user])
+        pol += (1 + spatial.distance.cosine(means, opinions[user]))
     return pol
 
 

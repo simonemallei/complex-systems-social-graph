@@ -26,7 +26,7 @@ def people_recommender(G, ops, nodes, strategy="random"):
             recommended_friend = []
             if len(not_friends) != 0: 
                 recommended_friend = np.random.choice(not_friends, size=1, replace=False)
-        elif strategy == 'opinion_diversity':
+        elif strategy == 'opinion_diversity1':
             distances_dict = {}
             opinions = nx.get_node_attributes(G, 'estimated_opinion')
             opinion_subject = opinions[node_id]
@@ -45,23 +45,22 @@ def people_recommender(G, ops, nodes, strategy="random"):
         elif strategy == 'topology_based':
             overlapping_dict = {}
             # BFS 
-            visited, queue = [], []
-            visited.append(node_id)
+            visited, queue = [[] for _ in range(4)], []
+            visited[0].append(node_id)
             queue.append((node_id, 0))
             while queue:
                 # next pair (node, distance)
                 next = queue.pop(0)
                 # reached max distance
-                if next[1] > 3:
+                if next[1] == 3:
                     break
                 next_neigs = list(nx.neighbors(G, next[0]))
                 for neig in next_neigs:
-                    if neig not in visited:
-                        visited.append(neig)
+                    if neig not in visited[next[1] + 1]:
+                        visited[next[1] + 1].append(neig)
                         queue.append((neig, next[1] + 1))
-            visited = [x for x in visited if x not in neigs]
-            visited.remove(node_id)
-            for not_friend in visited:
+            hop3 = [x for x in visited[3] if x not in neigs and x != node_id]
+            for not_friend in hop3:
                 not_friend_neigs = list(nx.neighbors(G, not_friend))
                 number_overlapping_friends = len(set(not_friend_neigs) & set(neigs))
                 overlapping_dict[not_friend] = number_overlapping_friends
@@ -71,9 +70,27 @@ def people_recommender(G, ops, nodes, strategy="random"):
             short_list = list(overlapping_dict_ordered.keys())[0:min(4, len(overlapping_dict_ordered))]
             nx.set_node_attributes(G, {node_id: short_list}, 'people_recommended')
             recommended_friend = []
-            if (len(short_list) > 0):
+            if len(short_list) > 0:
                 recommended_friend = np.random.choice(short_list, size=1, replace=False)
-
+        elif strategy == 'opinion_diversity':
+            # BFS
+            visited, queue = [], []
+            visited.append(node_id)
+            queue.append(node_id)
+            while queue:
+                next = queue.pop(0)
+                next_neigs = list(nx.neighbors(G, next))
+                for neig in next_neigs:
+                    if neig not in visited:
+                        visited.append(neig)
+                        queue.append(neig)
+            # Removing the node itself
+            visited.pop(0)
+            short_list = visited[max(0, len(visited) - 4):]
+            nx.set_node_attributes(G, {node_id: short_list}, 'people_recommended')
+            recommended_friend = []
+            if len(short_list) > 0:
+                recommended_friend = np.random.choice(short_list, size=1, replace=False)
         # note that recommended_friend is a numpy array with at most 1 element
         if len(recommended_friend) > 0:
             G.add_edge(node_id, recommended_friend[0])
@@ -82,11 +99,11 @@ def people_recommender(G, ops, nodes, strategy="random"):
             if len(neigs) > 0:
                 discarded_friend = np.random.choice(neigs, size=1, replace=False)
                 G.remove_edge(node_id, discarded_friend[0])
-            """
+            
             print('Node:\t' + str(node_id))
             print('New Friend:\t' + str(recommended_friend))
             print('Old Friend:\t' + str(discarded_friend))
-            """
+            
     return G
 
 

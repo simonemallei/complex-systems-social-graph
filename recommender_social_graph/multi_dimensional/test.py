@@ -30,13 +30,13 @@ def print_graph(G, print_labels=True):
 
 
 def test_graph():
-    nodes, ops = 100, 3
+    nodes, ops = 10, 3
     G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
     print_graph(G, False)
     normal_param = {'normal_mean': 0.5, 'normal_std': 0.1, 'n_post': 2}
     nudge_param = {'nudge_goal': 0.5, 'n_post': 2}
     
-    for i in range(500):
+    for i in range(1):
         G = simulate_epoch_content_people_recommender(G, ops, 50, 50, strategy='unsimilar', strat_param=nudge_param,
             estim_strategy='kalman', people_strategy='topology_based')
     print_graph(G, False)
