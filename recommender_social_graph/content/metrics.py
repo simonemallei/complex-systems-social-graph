@@ -81,27 +81,25 @@ def feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75):
     feed_history = nx.get_node_attributes(G, 'feed_history')
     beta = nx.get_node_attributes(G, 'beba_beta')
     opinion = nx.get_node_attributes(G, 'opinion')
-    sat_dict = {}
+    sat_dict = nx.get_node_attributes(G, 'feed_satisfaction')
     for node in G.nodes():
         curr_history = np.array(feed_history.get(node, []))
         len_feed = len(curr_history)
         # if the feed history is empty, the satisfaction has NaN value
-        if len_feed == 0:
-            sat_dict[node] = float('nan')
-        else:
+        if len_feed != 0:
             # if the history's length is greater than the maximum,
             # we'll consider the {max_len_history} newest ones
             if len_feed >= max_len_history:
                 curr_history = curr_history[-max_len_history:]
                 len_feed = max_len_history
             # computing weights of each content and then the function is defined as:
-            # f(weight) = (weights) / (1 + beta[node] * opinion[node])
+            # f(weight) = (weights) / (1 + beta[node] * abs(opinion[node]))
             # afterwards, we compute satisfaction as:
             # sat[node] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
             weights = curr_history * opinion[node] * beta[node] + 1
-            sig_x = (weights) / (1 + beta[node] * opinion[node])
+            sig_x = (weights) / (1 + beta[node] * abs(opinion[node]))
             satisf = sat_dict.get(node, np.mean(sig_x))
             sat_dict[node] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
-
+    nx.set_node_attributes(G, sat_dict, name = 'feed_satisfaction')
     return sat_dict
     
