@@ -43,9 +43,10 @@ Returns
 def content_recommender(G, act_nodes, strategy="random", strat_param={}):
     feed = nx.get_node_attributes(G, 'feed')
     opinions = nx.get_node_attributes(G, 'estimated_opinion')
-    beta = nx.get_node_attributes(G, 'beba_beta')
+    posteri_error = nx.get_node_attributes(G, 'posteri_error')
     new_feed = dict()
     for node_id in act_nodes:
+        error_var = posteri_error.get(node_id, 1.0)
         if strategy == "random":
             # Generating random recommended content in the range [-1, 1]
             # (n_post posts in the feed) 
@@ -69,37 +70,40 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
             # Generating recommended content using a normal distribution with
             # the following parameters: mean = {nudge_mean}, std = {nudge_std}
             # (n_post posts in the feed) 
-            nudge_goal = strat_param.get('nudge_goal', 0.0)
-            node_op = opinions.get(node_id, 0.0)
-            nudge_mean = (nudge_goal + node_op) / 2
-            nudge_std = abs(nudge_mean - node_op) / 8
-            n_post = strat_param.get('n_post', 1)
-            
-            post = [min(1, max(-1, np.random.normal(nudge_mean, nudge_std))) 
-                    for _ in range(n_post)]
-            new_feed[node_id] = feed.get(node_id, []) + post
+            if (error_var < 7e-3):
+                nudge_goal = strat_param.get('nudge_goal', 0.0)
+                node_op = opinions.get(node_id, 0.0)
+                nudge_mean = (nudge_goal + node_op) / 2
+                nudge_std = abs(nudge_mean - node_op) / 8
+                n_post = strat_param.get('n_post', 1)
+                
+                post = [min(1, max(-1, np.random.normal(nudge_mean, nudge_std))) 
+                        for _ in range(n_post)]
+                new_feed[node_id] = feed.get(node_id, []) + post
         elif strategy == "similar":
             similar_thresh = strat_param.get('similar_thresh', 0.5)
-            curr_op = opinions.get(node_id, [])
-            # Deleting content that is too far away from the node's opinion (measuring the distance
-            # as the absolute difference between the content's opinion and the node's one)
-            # if we haven't estimated yet its opinion, there are no posts removed from the feed
-            if (curr_op == []):
-                new_feed[node_id] = feed.get(node_id, [])
-            else:
-                prev_feed = feed.get(node_id, [])
-                new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
+            if (error_var < 7e-3):
+                curr_op = opinions.get(node_id, [])
+                # Deleting content that is too far away from the node's opinion (measuring the distance
+                # as the absolute difference between the content's opinion and the node's one)
+                # if we haven't estimated yet its opinion, there are no posts removed from the feed
+                if (curr_op == []):
+                    new_feed[node_id] = feed.get(node_id, [])
+                else:
+                    prev_feed = feed.get(node_id, [])
+                    new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
         elif strategy == "unsimilar":
             unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
-            curr_op = opinions.get(node_id, [])
-            # Deleting content that is too close from the node's opinion (measuring the distance
-            # as the absolute difference between the content's opinion and the node's one) 
-            # if we haven't estimated yet its opinion, there are no posts removed from the feed
-            if (curr_op == []):
-                new_feed[node_id] = feed.get(node_id, [])
-            else:
-                prev_feed = feed.get(node_id, [])
-                new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
+            if (error_var < 7e-3):
+                curr_op = opinions.get(node_id, [])
+                # Deleting content that is too close from the node's opinion (measuring the distance
+                # as the absolute difference between the content's opinion and the node's one) 
+                # if we haven't estimated yet its opinion, there are no posts removed from the feed
+                if (curr_op == []):
+                    new_feed[node_id] = feed.get(node_id, [])
+                else:
+                    prev_feed = feed.get(node_id, [])
+                    new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
     # Updating feed with recommended content  
     nx.set_node_attributes(G, new_feed, name='feed')
     return G
