@@ -95,6 +95,8 @@ Parameters
       The list with nodes' beta values.
   avg_friend: {}
       The number of average neighbors for each node in the graph.
+  prob_post : {list of float}
+      The list with nodes' probability of posting values.
   hp_alpha : {float}
       MY_homophilic_graph's homophily parameter.
   hp_beta : {float}
@@ -105,7 +107,7 @@ Returns
   G : {networkx.Graph}
       Returns the graph obtained.
 '''
-def create_graph(n_ag, beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1):
+def create_graph(n_ag, beba_beta=[1] , avg_friend=3, prob_post=[0.5], hp_alpha=2, hp_beta=1):
   
     # checks on beba_beta length
     if len(beba_beta) != 1 and len(beba_beta) != n_ag:
@@ -115,12 +117,23 @@ def create_graph(n_ag, beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta=1):
     if len(beba_beta) == 1:
         beba_beta = [beba_beta[0]] * n_ag
 
+    # checks on prob_post length
+    if len(prob_post) != 1 and len(prob_post) != n_ag:
+        print("WARNING: prob_post length is not valid. It must be 1 or nodes' number. Default value will be used")
+        prob_post = [0.5] * n_ag
+
+    if len(prob_post) == 1:
+        prob_post = [prob_post[0]] * n_ag
+
+
     # Calls MY_homophilic_ba_graph
     G = MY_homophilic_ba_graph(n_ag, avg_friend, hp_alpha, hp_beta)
 
-    # Setting beba_beta as node attributes
+    # Setting beba_beta and prob_post as node attributes
     node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
+    prob_post_dict = dict(zip(G.nodes(), prob_post))
     nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
+    nx.set_node_attributes(G, prob_post_dict, 'base_prob_post')
 
     op = nx.get_node_attributes(G, 'opinion')
 

@@ -167,8 +167,6 @@ Parameters
         The graph containing the social network.
     percent_updating_nodes : {int}
         The percentage of the nodes that will be activated.
-    percent_posting_nodes : {int}
-        The percentage of the activated nodes that will be posting nodes as well.
     epsilon : {float}
         The Gaussian noise's standard deviation in the posting phase.
     strategy : {"random", "normal", "nudge", "nudge_opt", "similar", "unsimilar"} default: "random"
@@ -204,7 +202,7 @@ Returns
     G : {networkx.Graph}
         The updated graph.
 '''
-def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0, strategy = "random", strat_param = {},
+def simulate_epoch_content_recommender(G, percent_updating_nodes, epsilon = 0.0, strategy = "random", strat_param = {},
                                       estim_strategy = "base", estim_strat_param = {}):
     # Sampling randomly the activating nodes
     updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
@@ -219,14 +217,8 @@ def simulate_epoch_content_recommender(G, percent_updating_nodes, percent_postin
     # Executing activation phase: activated nodes will consume their feed
     G = compute_activation(G, act_nodes)
 
-    # Sampling randomly the posting nodes from activating nodes' list
-    posting_nodes = int(percent_posting_nodes * len(act_nodes) / 100)
-    post_nodes = np.random.choice(act_nodes,size=posting_nodes, replace = False)
-    # Debug print
-    #print(f"Posting nodes: {post_nodes}")
-
     # Executing posting phase: activated nodes will post in their neighbours' feed
-    G = compute_post(G, post_nodes, epsilon)
+    G = compute_post(G, act_nodes, epsilon)
     # Estimating opinion by the recommender
     G = upd_estim(G, strategy = estim_strategy, strat_param = estim_strat_param)
     return G
