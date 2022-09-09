@@ -145,12 +145,11 @@ def monitor_feed(G, act_nodes):
   
 '''
 simulate_epoch_content_recommender simulates an epoch. It randomly activates a 
-percentage ({percent_updating_nodes}) of graph's nodes: firstly the content
+subset ({rate_updating_nodes * len(G.nodes())}) of graph's nodes: firstly the content
 recommender will update their feed, then each node will update its opinion 
 base on its feed.
-Afterwards, a percentage equal to {percentage_posting_nodes} of the activated
-vertices (always sampled randomly) will also be posting nodes, updating 
-their neighbours' feed with the content. 
+Afterwards, each activated node will post their opinion in their feed with a 
+a probability depending on each node (look compute_posting).
 The opinion shared by the posting nodes has a noise related
 to the parameter {epsilon}.
 
@@ -158,8 +157,8 @@ Parameters
 ----------
     G : {networkx.Graph}
         The graph containing the social network.
-    percent_updating_nodes : {int}
-        The percentage of the nodes that will be activated.
+    rate_updating_nodes : {float}
+        The rate of the nodes that will be activated.
     epsilon : {float}
         The Gaussian noise's standard deviation in the posting phase.
     strategy : {"random", "normal", "nudge", "nudge_opt", "similar", "unsimilar"} default: "random"
@@ -195,10 +194,10 @@ Returns
     G : {networkx.Graph}
         The updated graph.
 '''
-def simulate_epoch_content_recommender(G, percent_updating_nodes, epsilon = 0.0, strategy = "random", strat_param = {},
+def simulate_epoch_content_recommender(G, rate_updating_nodes, epsilon = 0.0, strategy = "random", strat_param = {},
                                       estim_strategy = "base", estim_strat_param = {}):
     # Sampling randomly the activating nodes
-    updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
+    updating_nodes = int(rate_updating_nodes * len(G.nodes()))
     act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
     # Debug print
     #print(f"Activated nodes (consuming their feed): {act_nodes}")

@@ -61,7 +61,7 @@ def compute_activation(G, nodes):
     weight_noose = beba_beta_list[curr_node] * opinions[curr_node] * opinions[curr_node] + 1
 
     # Computing engagement and using it as a coefficient of posting's probability
-    engagement = compute_engagement(G, beba_beta_list[curr_node], node_feeds)
+    engagement = compute_engagement(opinions[curr_node], beba_beta_list[curr_node], node_feeds)
     prob_post[curr_node] = min(1.0, base_prob_post[curr_node] * engagement)
 
     # Computing new opinion of curr_node
@@ -158,12 +158,11 @@ def compute_post(G, nodes, epsilon = 0.0):
   return G
 
 '''
-simulate_epoch_updated simulates an epoch. It randomly activates a 
-percentage ({percent_updating_nodes}) of graph's nodes and they will
-update their opinion base on their feed.
-Afterwards, a percentage equal to {percentage_posting_nodes} of the activated
-vertices (always sampled randomly) will also be posting nodes, updating 
-their neighbours' feed with the content. 
+simulate_epoch simulates an epoch. It randomly activates a 
+subset ({rate_updating_nodes * len(G.nodes())}) of graph's nodes and they will
+update their opinion depending on their feed.
+Afterwards, each activated node will post their opinion in their feed with a 
+a probability depending on each node (look compute_posting).
 The opinion shared by the posting nodes has a noise related
 to the parameter {epsilon}.
 
@@ -171,8 +170,8 @@ Parameters
 ----------
   G : {networkx.Graph}
       The graph containing the social network.
-  percent_updating_nodes : {int}
-      The percentage of the nodes that will be activated.
+  rate_updating_nodes : {float}
+      The rate of the nodes that will be activated.
   epsilon : {float}
       The Gaussian noise's standard deviation in the posting phase.
 
@@ -181,9 +180,9 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def simulate_epoch_updated(G, percent_updating_nodes, epsilon = 0.0):
+def simulate_epoch(G, rate_updating_nodes, epsilon = 0.0):
   # Sampling randomly the activating nodes
-  updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
+  updating_nodes = int(rate_updating_nodes * len(G.nodes()))
   act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
   # Debug print
   #print(f"Activated nodes (consuming their feed): {act_nodes}")
