@@ -2,6 +2,32 @@ import networkx as nx
 import numpy as np
 from collections import defaultdict
 import random
+
+'''
+compute_engagement computes the engagement of a node with the given
+opinion, beta and feed.
+
+Parameters
+----------
+  node_opinion : {float}
+      The opinion of the node we are considering.
+  node_beta : {float}
+      The ABEBA model's beta of the node.
+  node_feeds : {list of float}
+      The given node's feed.
+
+Returns
+-------
+  engagement : {float}
+      The engagement value.
+'''
+def compute_engagement(node_opinion, node_beta, node_feeds):
+  engagement = 1
+  if len(node_feeds) != 0:
+    exp_difference = [np.exp(abs(feed_op - node_opinion)) - 1 for feed_op in node_feeds]
+    engagement = (1 + node_beta * np.sum(exp_difference) / len(node_feeds))
+  return engagement
+
 '''
 compute_activation performs the activation of the nodes contained in {nodes}.
 The activation by a node is computed by updating his own opinion based
@@ -35,13 +61,8 @@ def compute_activation(G, nodes):
     weight_noose = beba_beta_list[curr_node] * opinions[curr_node] * opinions[curr_node] + 1
 
     # Computing engagement and using it as a coefficient of posting's probability
-    engagement = 1
-    # If the feed is not empty, we use the formula
-    if len(node_feeds) != 0:
-      engagement = (1 + beba_beta_list[curr_node] * 
-                    np.sum([np.exp(abs(feed_op - opinions[curr_node])) - 1 for feed_op in node_feeds]) / 
-                    len(node_feeds))
-    prob_post[curr_node] = base_prob_post[curr_node] * engagement
+    engagement = compute_engagement(G, beba_beta_list[curr_node], node_feeds)
+    prob_post[curr_node] = min(1.0, base_prob_post[curr_node] * engagement)
 
     # Computing new opinion of curr_node
     op_num = weight_noose * opinions[curr_node]
