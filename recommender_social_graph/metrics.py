@@ -48,8 +48,8 @@ def sarle_bimodality(G):
 
 '''
 disagreement returns a disagreement metric defined as the
-sum of the absolute distance between a node and each 
-neighbour, multiplied by the edge's weight.
+distribution of the absolute distance between a node and each 
+neighbour.
 
 Parameters
 ----------
@@ -60,19 +60,14 @@ Returns
 -------
     dis_dict : {dict}
         The dictionary containing for each graph's node the 
-        disagreement value.
+        disagreement mean and variance.
 '''
 def disagreement(G):
     # We need opinions and betas to compute the weights
     opinion = list(nx.get_node_attributes(G, 'opinion').values())
-    beta = list(nx.get_node_attributes(G, 'beba_beta').values())
     dis_dict = {}
     for node_from in G.nodes():
-        disagreement = 0.0
         # For each node, we compute the disagreement in its neighbourhood
-        for node_to in G.neighbors(node_from):
-            weight = beta[node_from] * opinion[node_from] * opinion[node_to] + 1
-            #meglio fare la media piuttosto che sommare. Il peso dell'arco va tolto perché va controcorrente alla distanza assoluta
-            disagreement += abs(opinion[node_from] - opinion[node_to]) * weight
-        dis_dict[node_from] = disagreement
+        disagreement = [abs(opinion[node_from] - opinion[node_to]) for node_to in G.neighbors(node_from)]
+        dis_dict[node_from] = (np.mean(disagreement), np.var(disagreement))
     return dis_dict
