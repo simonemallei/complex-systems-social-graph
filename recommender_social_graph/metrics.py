@@ -72,6 +72,7 @@ def disagreement(G):
         # For each node, we compute the disagreement in its neighbourhood
         for node_to in G.neighbors(node_from):
             weight = beta[node_from] * opinion[node_from] * opinion[node_to] + 1
+            #meglio fare la media piuttosto che sommare. Il peso dell'arco va tolto perché va controcorrente alla distanza assoluta
             disagreement += abs(opinion[node_from] - opinion[node_to]) * weight
         dis_dict[node_from] = disagreement
     return dis_dict
