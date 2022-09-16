@@ -1,5 +1,6 @@
 import networkx as nx
 import pandas as pd
+import numpy as np
 import recmetrics
 from scipy.stats import entropy
 '''
@@ -25,7 +26,7 @@ def diversity_of_recommendation(G, n_buckets=10):
     opinions = nx.get_node_attributes(G, 'opinion')
     entropy_dict = {}
     for key in people_recommended_dict:
-        # Computing entropy for each not empty feed history
+        # Computing entropy for each recommended people 
         people_recommended = people_recommended_dict[key]
         buckets = [0] * n_buckets
         for person_recommended in people_recommended:
@@ -87,3 +88,22 @@ def intra_list_similarity(G, n_profiles=3):
             # note that first argument must be list of lists
             intra_list_similarity_dict[key] = recmetrics.intra_list_similarity([people_recommended], intra_list_similarity_features)
     return intra_list_similarity_dict
+
+
+def opinion_estimation_accuracy(G):
+    nodes_with_estimated_opinion = list(nx.get_node_attributes(G, name='estimated_opinion').keys())
+    opinions = nx.get_node_attributes(G, 'opinion')
+    estimation_sum_of_distances = []
+    for key in nodes_with_estimated_opinion:
+        estimation_sum_of_distances.append(abs(opinions[key] - nodes_with_estimated_opinion[key])) 
+    mean = np.mean(estimation_sum_of_distances)
+    variance = np.var(estimation_sum_of_distances)
+    return mean, variance
+
+def recommendation_homophily_rate(G, nodes):
+    homophily_rate_dict = {}
+    opinions = nx.get_node_attributes(G, 'opinion')
+    for node_id in nodes:
+        person_recommended_dict = nx.get_node_attributes(G, name='person_recommended')
+        homophily_rate_dict[node_id] = abs(opinions[node_id] - opinions[person_recommended_dict[node_id]]) / 2
+    return homophily_rate_dict

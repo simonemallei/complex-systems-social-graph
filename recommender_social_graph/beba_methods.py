@@ -88,9 +88,9 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def simulate_epoch_updated(G, percent_updating_nodes, wii_list = None):
+def simulate_epoch_updated(G, rate_updating_nodes, wii_list = None):
   # Sampling randomly the updating nodes
-  n_updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
+  n_updating_nodes = int(rate_updating_nodes * len(G.nodes()))
   updating_nodes = np.random.choice(range(len(G.nodes())), size=n_updating_nodes, replace=False)
   try:
     G = compute_update(G, updating_nodes, wii_list)
