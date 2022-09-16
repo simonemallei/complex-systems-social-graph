@@ -30,15 +30,24 @@ def print_graph(G, print_labels=True):
 
 
 def test_graph():
-    nodes, ops = 10, 3
-    G = create_graph(nodes, ops, [1], avg_friend = 2, hp_alpha=5, hp_beta=0)
+    nodes, ops = 50, 3
+    G = create_graph(nodes, ops, [5], avg_friend = 5, hp_alpha=1, hp_beta=1)
     print_graph(G, False)
     normal_param = {'normal_mean': 0.5, 'normal_std': 0.1, 'n_post': 2}
-    nudge_param = {'nudge_goal': 0.5, 'n_post': 2}
+    nudge_param = {'nudge_goal': 0.75, 'n_post': 7}
     
-    for i in range(1):
-        G = simulate_epoch_content_people_recommender(G, ops, 50, 50, strategy='unsimilar', strat_param=nudge_param,
+    degrees = [G.degree(n) for n in G.nodes()]
+    plt.hist(degrees)
+    plt.show()
+    for i in range(50):
+        G = simulate_epoch_content_people_recommender(G, ops, 50, 50, strategy='nudge', strat_param=nudge_param,
             estim_strategy='kalman', people_strategy='topology_based')
+        satis = feed_satisfaction(G, ops)
+        avg = np.mean([np.mean(list(satis[i].values())) for i in range(nodes) if list(satis[i].values()) != []])
+        # print(avg)
+    degrees = [G.degree(n) for n in G.nodes()]
+    plt.hist(degrees)
+    plt.show()
     print_graph(G, False)
 
 

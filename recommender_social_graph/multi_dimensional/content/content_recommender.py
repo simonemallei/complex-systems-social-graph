@@ -5,11 +5,11 @@ import numpy as np
 from collections import defaultdict
 import random
 # Use this for notebook
-from multi_dimensional.abeba_methods import compute_activation, compute_post
-from multi_dimensional.estimation import upd_estim
+#from multi_dimensional.abeba_methods import compute_activation, compute_post
+#from multi_dimensional.estimation import upd_estim
 #Use this for test.py
-#from abeba_methods import compute_activation, compute_post
-#from estimation import upd_estim
+from abeba_methods import compute_activation, compute_post
+from estimation import upd_estim
 import math
 from tabulate import tabulate
 
@@ -84,22 +84,10 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       curr_op = opinions[node_id]
       nudge_goal = strat_param.get('nudge_goal', 0.0)
       op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
-      nudge_std = (abs(nudge_goal - curr_op[op]) / 4) * (1 / (2 ** beta[node_id]))
+      nudge_mean = (nudge_goal + curr_op[op]) / 2
+      nudge_std = abs(nudge_mean - curr_op[op]) / 8
       n_post = strat_param.get('n_post', 1)
-      to_add = [min(1, max(-1, np.random.normal(nudge_goal, nudge_std))) for _ in range(n_post)]
-      feed[node_id][op] += to_add
-    elif strategy == 'nudge_opt':
-      # Generating recommended content using a normal distribution with
-      # the following parameters: mean = {nudge_mean}, std = {nudge_std}
-      # (n_post posts in the feed)
-      curr_op = opinions[node_id]
-      nudge_goal = strat_param.get('nudge_goal', 0.0)
-      op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
-      if nudge_goal * curr_op[op] < 0:
-        nudge_goal = 0.0
-      nudge_std = (abs(nudge_goal - curr_op[op]) / 4) * (1 / (2 ** beta[node_id]))
-      n_post = strat_param.get('n_post', 1)
-      to_add = [min(1, max(-1, np.random.normal(nudge_goal, nudge_std))) for _ in range(n_post)]
+      to_add = [min(1, max(-1, np.random.normal(nudge_mean, nudge_std))) for _ in range(n_post)]
       feed[node_id][op] += to_add
     elif strategy == "similar":
       similar_thresh = strat_param.get('similar_thresh', 0.5)
@@ -110,7 +98,7 @@ def content_recommender(G, ops, act_nodes, strategy="random", strat_param={}):
       correct = [post for post in feed[node_id][op] if abs(post - curr_op[op]) <= similar_thresh]
       feed[node_id][op] = correct
     elif strategy == "unsimilar":
-      unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
+      unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.5)
       op = strat_param.get('selected_opinion', random.randint(0, ops - 1))
       curr_op = opinions[node_id]
       # Deleting content that is too close from the node's opinion (measuring the distance
@@ -141,15 +129,20 @@ Returns
 def monitor_feed(G, ops, act_nodes):
   feed = nx.get_node_attributes(G, 'feed')
   feed_history = nx.get_node_attributes(G, 'feed_history')
+  feed_length = nx.get_node_attributes(G, 'feed_length')
+  for node_id in G.nodes():
+    feed_length[node_id] = [0] * ops
   for node_id in act_nodes:
     # Updating feed history for each activated nodes
     curr_history = feed_history.get(node_id, [[] for i in range(ops)])
     curr_feed = feed.get(node_id, [[] for i in range(ops)])
     for op in range(ops):
-      result = curr_history[op] + curr_feed[op]
+      feed_length[node_id][op] = len(curr_feed[op])
       feed_history[node_id][op] = curr_history[op] + curr_feed[op]
+      
   # Updating the history in the graph
   nx.set_node_attributes(G, feed_history, name='feed_history')
+  nx.set_node_attributes(G, feed_length, name='feed_length')
   return G
   
 '''

@@ -147,3 +147,53 @@ def feed_entropy(G, ops, n_buckets=4, max_len_history=30):
         else:
             entropy_dict[node] = nan
     return entropy_dict
+
+
+
+'''
+feed_satisfaction returns a satisfaction metric that uses the ABEBA weight 
+between a node and a post in its feed, the node's opinion and its bias (beta). 
+It is defined as {weight} / (1 + {beta[node]} * {opinion[node]}).
+
+Parameters
+----------
+    G : {networkx.Graph}
+        The graph containing the feed history to measure.
+    max_len_history : {int}, default : 10
+        Maximum length of the feed history considered (if we have
+        more than {max_len_history} posts, we'll consider
+        the {max_len_history} newest ones).
+    sat_alpha : {float}, default : 0.75
+        Alpha coefficient used to weight previous satisfaction
+        of the node to compute the current one.
+  
+Returns
+-------
+    sat_dict : {dict}
+        The dictionary containing for each graph's node the 
+        satisfaction value of its feed history.
+'''
+def feed_satisfaction(G, ops, max_len_history = 10, sat_alpha = 0.75):
+    feed_history = nx.get_node_attributes(G, 'feed_history')
+    feed_length = nx.get_node_attributes(G, 'feed_length')
+    beta = nx.get_node_attributes(G, 'beba_beta')
+    opinion = nx.get_node_attributes(G, 'opinion')
+    # Dictionary where for every node you have a dictionary of ops satisfactions 
+    sat_dict = nx.get_node_attributes(G, 'feed_satisfaction')
+    for node in G.nodes():
+        curr_history = feed_history.get(node, [[] for i in range(ops)])
+        for op in range(ops):
+            len_history = len(curr_history[op])
+            len_feed = feed_length.get(node, [0] * ops)[op]
+            if len_feed != 0:
+                len_feed = min(len_history, max(max_len_history, len_feed))
+                curr_history[op] = curr_history[op][-len_feed:]
+
+                history_array = np.array(curr_history[op])
+                weights = history_array * opinion[node][op] * beta[node] + 1
+                sig_x = (weights) / (1 + beta[node] * abs(opinion[node][op]))
+                satisf = sat_dict.get(node, {}).get(op, np.mean(sig_x))
+                sat_dict[node][op] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
+    nx.set_node_attributes(G, sat_dict, 'feed_satisfaction')
+    return sat_dict
+    

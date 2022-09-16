@@ -146,4 +146,6 @@ def create_graph(n_ag, ops=1,  beba_beta=[1] , avg_friend=3, hp_alpha=2, hp_beta
   posteri_error = dict(zip(G.nodes(), [[1.0 for i in range(ops)] for j in range(n_ag)]))
   nx.set_node_attributes(G, posteri_opinion, 'posteri_opinion')
   nx.set_node_attributes(G, posteri_error, 'posteri_error')
+  sat_dict = {node : {} for node in G.nodes()}
+  nx.set_node_attributes(G, sat_dict, 'feed_satisfaction')
   return G

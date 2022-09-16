@@ -77,6 +77,8 @@ def people_recommender(G, ops, nodes, strategy="random"):
             visited, queue = [], []
             visited.append(node_id)
             queue.append(node_id)
+            dist = {}
+            dist[node_id] = 0
             while queue:
                 next = queue.pop(0)
                 next_neigs = list(nx.neighbors(G, next))
@@ -84,6 +86,7 @@ def people_recommender(G, ops, nodes, strategy="random"):
                     if neig not in visited:
                         visited.append(neig)
                         queue.append(neig)
+                        dist[neig] = dist[next] + 1
             # Removing the node itself
             visited.pop(0)
             short_list = visited[max(0, len(visited) - 4):]
@@ -93,16 +96,18 @@ def people_recommender(G, ops, nodes, strategy="random"):
                 recommended_friend = np.random.choice(short_list, size=1, replace=False)
         # note that recommended_friend is a numpy array with at most 1 element
         if len(recommended_friend) > 0:
+            avg_deg = sum([G.degree(n) for n in G.nodes()]) / G.number_of_nodes()
             G.add_edge(node_id, recommended_friend[0])
             # deleting a random edge to prevent fully connected graphs
             discarded_friend = []
-            if len(neigs) > 0:
+            if len(neigs) > 0 and G.degree(node_id) >= 2:
                 discarded_friend = np.random.choice(neigs, size=1, replace=False)
                 G.remove_edge(node_id, discarded_friend[0])
-            
+            """
             print('Node:\t' + str(node_id))
             print('New Friend:\t' + str(recommended_friend))
             print('Old Friend:\t' + str(discarded_friend))
+            """ 
             
     return G
 

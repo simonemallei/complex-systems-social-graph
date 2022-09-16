@@ -44,32 +44,6 @@ def upd_estim(G, ops, strategy = "base", strat_param = {}):
                     nx.set_node_attributes(G, posteri_opinion, name='posteri_opinion')
                     nx.set_node_attributes(G, posteri_error, name='posteri_error')
                 to_estim[node_id][op] = []
-    elif strategy == "kalman_opt":
-        for node_id in G.nodes():
-            last_post = to_estim.get(node_id, [[] for i in range(ops)])
-            for op in range(ops):
-                if not(last_post[op] == []):
-                    variance = strat_param.get('variance', 1e-5)
-                    R = strat_param.get('variance_measure', 0.1 ** 2)
-                    posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
-                    posteri_error = nx.get_node_attributes(G, name='posteri_error')
-                    op_posteri = posteri_opinion.get(node_id)
-                    P_posteri = posteri_error.get(node_id)
-                    # Prediction phase
-                    op_priori = op_posteri[op]
-                    P_priori = P_posteri[op] + variance
-                    # Correction phase
-                    K = P_priori / (P_priori + R)
-                    op_posteri[op] = op_priori + K * (last_post[op] - op_priori)
-                    P_posteri[op] = (1 - K) * P_priori
-                    # Updating values obtained
-                    estimated[node_id][op] = op_posteri[op]
-                    posteri_opinion[node_id][op] = op_posteri[op]
-                    posteri_error[node_id][op] = P_posteri[op]
-                    # Updating estimates
-                    nx.set_node_attributes(G, posteri_opinion, name='posteri_opinion')
-                    nx.set_node_attributes(G, posteri_error, name='posteri_error')
-                to_estim[node_id][op] = []
     # Updating estimated opinions
     nx.set_node_attributes(G, to_estim, name='to_estimate')  
     nx.set_node_attributes(G, estimated, name='estimated_opinion')
