@@ -18,57 +18,6 @@ class SubstrategyNotRecognized(Exception):
 class StrategyNotRecognized(Exception):
     """Raised when the param 'strategy' has a not regnized value"""
     pass
-'''
-x_hop_neighbors is called recursively and returns the nodes after the desired hops.
-Since it receives an undirected graph as input, it excludes the nodes already visited 
-to prevent "going back" in the exploration.
-
-Parameters
-----------
-  G : {networkx.Graph}
-      The graph containing the social network.
-  nodes : {list of object}
-      The list containing nodes' IDs on which to search for nodes at {x_hop}
-  x_hop : {int}     
-      Number of "hops" to do before stopping and returning found nodes
- previous_nodes : {list of ints}
-      Contains the id of the nodes to be discarded to avoid "going back" 
-      in the exploration of the graph and to return nodes that are not at 
-      the correct number of hops compared to the starting node
-
-Returns
--------
-  all_new_friends_list_unique : {list of ints}
-      the list the list of node ids that are exactly at x hops according to the starting nodes
-'''
-""" def x_hop_neighbors(G, nodes, x_hop, previous_nodes = None):
-    all_friends_list = []
-    if previous_nodes is None:
-        previous_nodes = nodes
-    for node in nodes:
-        friends = list(nx.neighbors(G, node))
-        all_friends_list += friends
-    
-    all_new_friends_list = [x for x in all_friends_list if x not in previous_nodes]
-    all_new_friends_list_unique = list(dict.fromkeys(all_new_friends_list))
-    if x_hop == 1:
-        return all_new_friends_list_unique
-    else:
-        previous_nodes += friends
-        return x_hop_neighbors(G, all_new_friends_list_unique, x_hop-1, previous_nodes) """
-
-def x_hop_neighbors(G, nodes, x_hop):
-    all_friends_list = []
-    for node in nodes:
-        friends = list(nx.neighbors(G, node))
-        all_friends_list += friends
-        all_friends_list_unique = list(dict.fromkeys(all_friends_list))
-    if x_hop == 1:
-        return all_friends_list_unique
-    else:
-        return x_hop_neighbors(G, all_friends_list_unique, x_hop-1)
-
-
 
 '''
 people_recommender performs a people recommender system.
@@ -108,10 +57,10 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
             # recommending a random node not already friend as a new friend. 
             recommended_friend = np.random.choice(not_friends, size=1, replace=False)
         elif strategy == 'opinion_estimation_based':
-            nodes_with_estimated_opinion = list(nx.get_node_attributes(G, name='estimated_opinion').keys())
+            nodes_with_estimated_opinion = nx.get_node_attributes(G, name='estimated_opinion')
             posteri_errors_dict = nx.get_node_attributes(G, name='posteri_error')
             distances_dict = {}
-            for key in nodes_with_estimated_opinion:
+            for key in nodes_with_estimated_opinion.keys():
                 if key in not_friends:
                     abs_distance = abs(nodes_with_estimated_opinion[node_id] - nodes_with_estimated_opinion[key])
                     if bool(posteri_errors_dict):
@@ -126,13 +75,13 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
                     else:
                         distances_dict[key] = abs_distance
             if substrategy == "counteract_homophily":
-                distances_distribution = special.softmax(distances_dict.values())
+                distances_distribution = special.softmax(list(distances_dict.values()))
             elif substrategy == "favour_homophily":
                 # it penalizes the furthest nodes. Note that this is exactly like having 2 - abs_distance in the previous calculation
                 distances_distribution = special.softmax([-1*x for x in distances_dict.values()])
             else:
                 raise SubstrategyNotRecognized
-            recommended_friend = np.random.choice(distances_dict.keys(), size=1, replace=False, p=distances_distribution)
+            recommended_friend = np.random.choice(list(distances_dict.keys()), size=1, replace=False, p=distances_distribution)
         elif strategy == 'topology_based':
             if substrategy == "favour_homophily":
                 overlapping_dict = {}
@@ -160,8 +109,8 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
                     number_overlapping_friends = len(set(not_friend_neigs) & set(neigs))
                     overlapping_dict[not_friend] = number_overlapping_friends
 
-                overlapping_distribution = special.softmax(overlapping_dict.values())
-                recommended_friend = np.random.choice(overlapping_dict.keys(), size=1, replace=False, p=overlapping_distribution)
+                overlapping_distribution = special.softmax(list(overlapping_dict.values()))
+                recommended_friend = np.random.choice(list(overlapping_dict.keys()), size=1, replace=False, p=overlapping_distribution)
             elif substrategy == "counteract_homophily":
                 # BFS
                 visited, queue = [], []
@@ -179,8 +128,8 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
                             dist[neig] = dist[next] + 1
 
                 dist_not_friends = { key:value for (key,value) in dist.items() if key in not_friends}
-                distances_distribution = special.softmax(dist_not_friends.values())
-                recommended_friend = np.random.choice(dist_not_friends.keys(), size=1, replace=False, p=distances_distribution)
+                distances_distribution = special.softmax(list(dist_not_friends.values()))
+                recommended_friend = np.random.choice(list(dist_not_friends.keys()), size=1, replace=False, p=distances_distribution)
             else:
                 raise SubstrategyNotRecognized
             
