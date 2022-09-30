@@ -45,6 +45,8 @@ def upd_estim(G, strategy = "base", strat_param = {}):
             to_estim[node_id] = []
             
     elif strategy == "kalman":
+        posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
+        posteri_error = nx.get_node_attributes(G, name='posteri_error')        
         for node_id in G.nodes():
             last_post = to_estim.get(node_id, [])
             # If last_post is == [], then the node hasn't posted anything
@@ -52,8 +54,6 @@ def upd_estim(G, strategy = "base", strat_param = {}):
             if not(last_post == []):
                 variance = strat_param.get('variance', 1e-5) # process variance
                 R = strat_param.get('variance_measure', 0.1 ** 2) # estimate of measurement variance, change to see effect
-                posteri_opinion = nx.get_node_attributes(G, name='posteri_opinion')
-                posteri_error = nx.get_node_attributes(G, name='posteri_error')
                 # Opinion a posteri (represents the last estimation)
                 op_posteri = posteri_opinion.get(node_id, 0.0)
                 # Error a posteri (represents the last error value)
@@ -76,10 +76,10 @@ def upd_estim(G, strategy = "base", strat_param = {}):
                 posteri_opinion[node_id] = op_posteri
                 posteri_error[node_id] = P_posteri
                 # Updating estimates
-                nx.set_node_attributes(G, posteri_opinion, name='posteri_opinion')
-                nx.set_node_attributes(G, posteri_error, name='posteri_error')
-            
+                
             to_estim[node_id] = []
+        nx.set_node_attributes(G, posteri_opinion, name='posteri_opinion')
+        nx.set_node_attributes(G, posteri_error, name='posteri_error')
     nx.set_node_attributes(G, to_estim, name='to_estimate')  
     nx.set_node_attributes(G, estimated, name='estimated_opinion')
     return G

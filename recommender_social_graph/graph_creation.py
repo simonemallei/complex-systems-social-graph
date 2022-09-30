@@ -2,6 +2,9 @@ import networkx as nx
 import numpy as np
 from collections import defaultdict
 import random
+import copy
+
+from requests import post
 
 def MY_homophilic_ba_graph(N, m,alpha=2, beta=1):
     """Return homophilic random graph using BA preferential attachment model.
@@ -131,11 +134,27 @@ def create_graph(n_ag, beba_beta=[1] , avg_friend=3, prob_post=[0.5], hp_alpha=2
 
     # Setting beba_beta and prob_post as node attributes
     node_beba_beta_dict = dict(zip(G.nodes(), beba_beta))
-    prob_post_dict = dict(zip(G.nodes(), prob_post))
     nx.set_node_attributes(G, node_beba_beta_dict, 'beba_beta')
-    nx.set_node_attributes(G, prob_post_dict, 'base_prob_post')
-
-    op = nx.get_node_attributes(G, 'opinion')
-
+    node_feed = {node: [] for node in G.nodes()}
+    nx.set_node_attributes(G, node_feed, 'feed')
+    node_feed_history = {node: [] for node in G.nodes()}
+    nx.set_node_attributes(G, node_feed_history, 'feed_history')
+    feed_length = {node: 0 for node in G.nodes()}
+    nx.set_node_attributes(G, feed_length, 'feed_length')
+    to_estim = {node: [] for node in G.nodes()}
+    nx.set_node_attributes(G, to_estim, 'to_estimate')
+    estimated = {node: 0.0 for node in G.nodes()}
+    nx.set_node_attributes(G, estimated, 'estimated_opinion')
+    posteri_opinion = {node: 0.0 for node in G.nodes()}
+    posteri_error = {node: 1.0 for node in G.nodes()}
+    nx.set_node_attributes(G, posteri_opinion, 'posteri_opinion')
+    nx.set_node_attributes(G, posteri_error, 'posteri_error')
+    sat_dict = {}
+    nx.set_node_attributes(G, sat_dict, 'feed_satisfaction')
+    base_prob_post = dict(zip(G.nodes(), prob_post))
+    nx.set_node_attributes(G, base_prob_post, 'base_prob_post')
+    curr_prob_post = dict(zip(G.nodes(), copy.deepcopy(prob_post)))
+    nx.set_node_attributes(G, curr_prob_post, 'prob_post')
+    
     return G
 

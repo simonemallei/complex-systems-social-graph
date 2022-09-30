@@ -51,7 +51,7 @@ def compute_activation(G, nodes):
     opinions = nx.get_node_attributes(G, 'opinion')
     all_feeds = nx.get_node_attributes(G, 'feed')
     beba_beta_list = nx.get_node_attributes(G, 'beba_beta')
-    prob_post = nx.get_node_attributes(G, 'prob_post')
+    prob_post = {}
     base_prob_post = nx.get_node_attributes(G, 'base_prob_post')
     # Activating update of each node
     for curr_node in nodes:
@@ -118,7 +118,7 @@ Returns
 '''
 def compute_post(G, nodes, epsilon = 0.0):
     opinions = nx.get_node_attributes(G, 'opinion')
-    estim = nx.get_node_attributes(G, 'to_estimate')
+    estim = {}
     prob_post = nx.get_node_attributes(G, 'prob_post')
     for node_id in nodes:
         sample = random.random()
@@ -142,8 +142,7 @@ def compute_post(G, nodes, epsilon = 0.0):
             # posted a new content
             estim[node_id] = noise_op
 
-            post_to_be_added = dict(zip(all_neig,
-                                        [list(post) for _ in range(len(all_neig))] ))
+            post_to_be_added = {neig : list(post) for neig in all_neig}
 
             post_post_to_be_added = {key: past_feed[key] + value 
                                         if key in [*past_feed]
