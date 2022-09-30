@@ -17,7 +17,7 @@ Parameters
         The graph containing the social network.
     act_nodes : {list of object}
         The list containing activated nodes' IDs (dictionary keys).
-    strategy : {"random", "normal", "nudge", "similar", "unsimilar"} default: "random"
+    strategy : {"no_recommender", "random", "normal", "nudge", "similar", "unsimilar"} default: "random"
         The string that defines the strategy used by the recommender system.
     strat_param : {dictionary}
         The dictionary containing the parameters value used by the recommender, based
@@ -104,6 +104,9 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
                 else:
                     prev_feed = feed.get(node_id, [])
                     new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
+        elif not (strategy == "no_recommender"):
+            raise ValueError("Strategy not defined. Use one of the following: " +
+                             "[\"no_recommender\", \"random\", \"normal\", \"nudge\", \"similar\", \"unsimilar\"]")
     # Updating feed with recommended content  
     nx.set_node_attributes(G, new_feed, name='feed')
     return G
@@ -128,9 +131,7 @@ Returns
 def monitor_feed(G, act_nodes):
     feed = nx.get_node_attributes(G, 'feed')
     feed_history = nx.get_node_attributes(G, 'feed_history')
-    feed_length = nx.get_node_attributes(G, 'feed_length')
-    for node_id in G.nodes():
-        feed_length[node_id] = 0
+    feed_length = {}
     for node_id in act_nodes:
         # Updating feed history for each activated nodes
         curr_history = feed_history.get(node_id, [])
