@@ -1,3 +1,7 @@
 __pycache__/
 
 .vscode/
+
+recommender_social_graph/configurations/
+
+recommender_social_graph/output/

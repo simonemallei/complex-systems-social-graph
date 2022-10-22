@@ -58,9 +58,9 @@ Parameters
   
 Returns
 -------
-    dis_dict : {dict}
-        The dictionary containing for each graph's node the 
-        disagreement mean and variance.
+    mean, variance : {tuple of floats}
+        A tuple containing mean and variance calculated on the 
+        disagreement mean and variance for each graph's node
 '''
 def disagreement(G):
     # We need opinions and betas to compute the weights
@@ -70,4 +70,9 @@ def disagreement(G):
         # For each node, we compute the disagreement in its neighbourhood
         disagreement = [abs(opinion[node_from] - opinion[node_to]) for node_to in G.neighbors(node_from)]
         dis_dict[node_from] = (np.mean(disagreement), np.var(disagreement))
-    return dis_dict
+
+    means = [dis_dict[node][0] for node in G.nodes()]
+    variances = [dis_dict[node][1] for node in G.nodes()]
+    mean = np.mean(means)
+    variance = np.sum(variances) / (len(G.nodes()) ** 2)
+    return mean, variance

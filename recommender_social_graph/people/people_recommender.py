@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 from scipy import special
 from abeba_methods import compute_activation, compute_post
+from estimation import upd_estim
 
 class RecommendedFriendNotFound(Exception):
     """Raised when the People Recommender fails to recommend a new friend to a given node"""
@@ -23,17 +24,32 @@ class StrategyNotRecognized(Exception):
 people_recommender performs a people recommender system.
 It performs the recommendation routine on the nodes contained 
 in {act_nodes}.
-The recommender routine depends on which strategy is chosen 
+The recommender routine depends on which strategy and substrategy are chosen 
 (by default, the method use the "random" one). 
+Before choosing the node to recommend, the recommendation data of the previous epoch 
+concerning all those nodes that do not publish content in this epoch are deleted. 
+Instead, the data of those nodes that will publish content in this epoch are overwritten 
+as soon as the routine chooses the new node.
+
+Note that, at the end of the method, a node is removed from friends to avoid getting a 
+fully connected graph. As the code is currently implemented, this node cannot be the 
+one just added to friends, nor can it be a friend node that has no other friends. This 
+last constraint serves to avoid penalizing nodes with few friends, which, otherwise, 
+risk being isolated.
 
 Parameters
 ----------
-  G : {networkx.Graph}
-      The graph containing the social network.
-  nodes : {list of object}
-      The list containing nodes' IDs (dictionary keys) on which to run the people recommender
-  strategy : {"random"} default: "random"
-      The string that defines the strategy used by the recommender system.
+    G : {networkx.Graph}
+        The graph containing the social network.
+    nodes : {list of object}
+        The list containing nodes' IDs (dictionary keys) on which to run the people recommender
+    strategy : {String} default: "random"
+        The string that defines the strategy used by the recommender system.
+        There are two possible strategies that can be combined with two possible sub-strategies,
+        in addition to the random strategy:
+        Strategies: opinion_estimation_based, topology_based
+    Substrategies: {String} default: None
+        Possible values are: counteract_homophily, favour_homophily
 
 Returns
 -------
@@ -46,6 +62,14 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
             raise SubstrategyNotRecognized
     elif strategy != "random": 
        raise StrategyNotRecognized 
+
+    # Deletes the data of the previous epoch.
+    # For performance reasons, the attribute of the nodes on which to run the recommendation system is not deleted
+    # because it will be overwritten
+    person_recommended_dict = nx.get_node_attributes(G, name='person_recommended')
+    for key in person_recommended_dict.keys():
+        if key not in nodes:
+            del G.nodes[key]['person_recommended']
 
     all_nodes = list(G.nodes)
     for node_id in nodes:
@@ -157,51 +181,70 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
 simulate_epoch_people_recommender simulates an epoch. It randomly activates a 
 percentage ({percent_updating_nodes}) of graph's nodes and so each node will 
 update its opinion base on its feed.
-Afterwards, a percentage equal to {percentage_posting_nodes} of the activated
-vertices (always sampled randomly) will also be posting nodes, updating 
-their neighbours' feed with the content. The opinion shared by the posting nodes 
-has a noise related to the parameter {epsilon}.
+Afterwards, a percentage of the activated nodes (always sampled randomly) will 
+also be posting nodes, updating their neighbours' feed with the content. The 
+opinion shared by the posting nodes has a noise related to the parameter {epsilon}.
 Then the people recommender is run on the posting_nodes.
+
+IMPORTANT: this method is only used to test the People Recommender by isolating it 
+from the Content Recommender. This method is not what is actually used for simulations.
 
 Parameters
 ----------
-  G : {networkx.Graph}
-      The graph containing the social network.
-  percent_updating_nodes : {int}
-      The percentage of the nodes that will be activated.
-  percent_posting_nodes : {int}
-      The percentage of the activated nodes that will be posting nodes as well.
-  epsilon : {float}
-      The Gaussian noise's standard deviation in the posting phase.
+    G : {networkx.Graph}
+        The graph containing the social network.
+    rate_updating_nodes : {float}
+        The percentage of the nodes that will be activated. Interval [0,1]
+    epsilon : {float} default: 0.0
+        The Gaussian noise's standard deviation in the posting phase.
+    estim_strategy: {String} default: "base"
+        The strategy that is used to estimate the opinion of the nodes that posting a content
+    estim_strategy_param : {dictionary}
+        The dictionary containing the parameters value used by the recommender, based
+        on {strategy} value.
+            - key: "alpha",
+              value: alpha coefficient used in "base" strategy. Default: 0.9
+            - key: "variance",
+              value: process variance of "kalman" strategy. Default: 1e-5
+            - key: "variance_measure",
+              value: measure variance of "kalman" strategy. Default: 0.1 ** 2 (0.1 ^ 2)
+    strategy_people_recommender : {String} default: "random"
+        The string that defines the strategy used by the recommender system.
+        There are two possible strategies that can be combined with two possible sub-strategies,
+        in addition to the random strategy:
+        Strategies: opinion_estimation_based, topology_based
+    Substrategies: {String} default: None
+        Possible values are: counteract_homophily, favour_homophily
 
 Returns
 -------
   G : {networkx.Graph}
       The updated graph.
 '''
-def simulate_epoch_people_recommender(G, percent_updating_nodes, percent_posting_nodes, epsilon = 0.0):
-  # Sampling randomly the activating nodes
-  updating_nodes = int(percent_updating_nodes * len(G.nodes()) / 100)
-  act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
-  # Debug print
-  #print(f"Activated nodes (consuming their feed): {act_nodes}")
+def simulate_epoch_people_recommender(
+    G, 
+    rate_updating_nodes, 
+    epsilon = 0.0, 
+    estim_strategy = "base", 
+    estim_strategy_param = {},
+    strategy_people_recommender = "random",
+    substrategy_people_recommender = None
+    ):
 
-  # Executing activation phase: activated nodes will consume their feed
-  G = compute_activation(G, act_nodes)
+    # Sampling randomly the activating nodes
+    updating_nodes = int(rate_updating_nodes * len(G.nodes()))
+    act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
 
-  # Sampling randomly the posting nodes from activating nodes' list
-  posting_nodes = int(percent_posting_nodes * len(act_nodes) / 100)
-  post_nodes = np.random.choice(act_nodes,size=posting_nodes, replace = False)
-  # Debug print
-  #print(f"Posting nodes: {post_nodes}")
+    # Executing activation phase: activated nodes will consume their feed
+    G = compute_activation(G, act_nodes)
 
-  # Executing posting phase: activated nodes will post in their neighbours' feed
-  G = compute_post(G, post_nodes, epsilon)
-  # Executing content recommender system on activated nodes
-  try:
-    G = people_recommender(G, post_nodes)
-  except (RecommendedFriendNotFound, StrategyNotRecognized, SubstrategyNotRecognized):
-    print("the People Recommender failed to recommend a new friend to a given node")
-    raise SimulateEpochPeopleRecommenderError
-
-  return G
+    # Executing posting phase: activated nodes will post in their neighbours' feed
+    G, posting_nodes_list = compute_post(G, act_nodes, epsilon)
+    # Estimating opinion by the recommender
+    G = upd_estim(G, posting_nodes_list, strategy = estim_strategy, strat_param = estim_strategy_param)
+    try:
+      G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender)
+    except (RecommendedFriendNotFound, StrategyNotRecognized, SubstrategyNotRecognized):
+      print("the People Recommender failed to recommend a new friend to a given node")
+      raise SimulateEpochPeopleRecommenderError
+    return G

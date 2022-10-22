@@ -120,11 +120,13 @@ def compute_post(G, nodes, epsilon = 0.0):
     opinions = nx.get_node_attributes(G, 'opinion')
     estim = {}
     prob_post = nx.get_node_attributes(G, 'prob_post')
+    posting_nodes_list = []
     for node_id in nodes:
         sample = random.random()
         # {node_id} node will post with probability
         # {prob_post[node_id]}
         if sample <= prob_post[node_id]:
+            posting_nodes_list.append(node_id)
             # epsilon defines the standard deviation of the value generated
             rand_eps = np.random.normal(0, epsilon, 1) 
             noise_op = rand_eps[0] + opinions[node_id]
@@ -154,7 +156,7 @@ def compute_post(G, nodes, epsilon = 0.0):
             nx.set_node_attributes(G, post_post_to_be_added , name='feed')
     nx.set_node_attributes(G, estim, name='to_estimate')
     
-    return G
+    return G, posting_nodes_list
 
 '''
 simulate_epoch simulates an epoch. It randomly activates a 

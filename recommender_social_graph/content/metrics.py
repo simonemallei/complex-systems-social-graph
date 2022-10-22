@@ -20,9 +20,9 @@ Parameters
   
 Returns
 -------
-    entropy_dict : {dict}
-        The dictionary containing for each graph's node the entropy
-        of its feed history.
+    mean, variance : {tuple of floats}
+        A tuple containing mean and variance calculated on the 
+        every entropy value.
 '''
 def feed_entropy(G, n_buckets=10, max_len_history=30):
     feed_history = nx.get_node_attributes(G, 'feed_history')
@@ -49,7 +49,10 @@ def feed_entropy(G, n_buckets=10, max_len_history=30):
             # in order of being able to compute its entropy
             buckets = [buck/len_feed for buck in buckets]
             entropy_dict[node] = entropy(buckets, base = n_buckets)
-    return entropy_dict
+
+    mean = np.mean(list(entropy_dict.values()))
+    variance = np.var(list(entropy_dict.values()))
+    return mean, variance
 
 
 '''
@@ -71,9 +74,9 @@ Parameters
   
 Returns
 -------
-    sat_dict : {dict}
-        The dictionary containing for each graph's node the 
-        satisfaction value of its feed history.
+    mean, variance : {tuple of floats}
+        A tuple containing mean and variance calculated on the 
+        every feed_satisfaction value.
 '''
 def feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75):
     feed_history = nx.get_node_attributes(G, 'feed_history')
@@ -100,7 +103,9 @@ def feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75):
             sig_x = (weights) / (1 + beta[node] * abs(opinion[node]))
             satisf = sat_dict.get(node, np.mean(sig_x))
             sat_dict[node] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
-    
+
     nx.set_node_attributes(G, sat_dict, name = 'feed_satisfaction')
-    return sat_dict
+    mean = np.mean(list(sat_dict.values()))
+    variance = np.var(list(sat_dict.values()))
+    return mean, variance
     
