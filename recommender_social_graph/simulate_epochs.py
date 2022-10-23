@@ -214,7 +214,7 @@ def simulate_epochs(G, model_params):
             G = simulate_epoch_content_people_recommender(
                         G = G,
                         rate_updating_nodes = model_params["rate_updating_nodes"],
-                        post_epsilon = model_params["post_epsilon"],
+                        epsilon = model_params["post_epsilon"],
                         estim_strategy = model_params["estim_strategy"],
                         estim_strategy_param = model_params["estim_strategy_param"],
                         strategy_content_recommender = model_params["strategy_content_recommender"],

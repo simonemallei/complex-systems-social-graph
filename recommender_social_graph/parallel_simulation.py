@@ -46,7 +46,7 @@ Returns
 
 def get_graph_configurations():
     try:
-        input_file = open ('recommender_social_graph/configurations/graph-configurations.json', 'r', encoding='utf-8')
+        input_file = open ('configurations/graph-configurations.json', 'r', encoding='utf-8')
         configurations_list = json.load(input_file)
         input_file.close()
         return configurations_list
@@ -70,7 +70,7 @@ Returns
 
 def get_model_configurations():
     try:
-        input_file = open ('recommender_social_graph/configurations/model-configurations.json', 'r', encoding='utf-8')
+        input_file = open ('configurations/model-configurations.json', 'r', encoding='utf-8')
         configurations_list = json.load(input_file)
         input_file.close()
         return configurations_list
@@ -184,7 +184,7 @@ def save_initial_data(graphs_list, graph_configurations_list, model_configuratio
     folders_dict = {}
     for idx, model_configuration in enumerate(model_configurations_list):
         # Creating folder
-        path = "recommender_social_graph/output/" + date.strftime('%Y-%m-%d_%H-%M-%S') + "_" + "config_" + str(idx)
+        path = "output/" + date.strftime('%Y-%m-%d_%H-%M-%S') + "_" + "config_" + str(idx)
         os.mkdir(path)
 
         # Saving folder
@@ -246,6 +246,7 @@ def save_graph(G, title, path):
     labels =  nx.get_node_attributes(G, 'opinion')
     nx.draw(G, labels= dict([index for index in enumerate(labels)]), node_color=colors, font_color='darkturquoise', vmin=-1, vmax=1, cmap = plt.cm.get_cmap('magma'))
     plt.savefig(path + "/" + title + ".png", format="PNG")
+    plt.clf()
 
 '''
 simulate extracts the data needed for the simulation and passes it to the 
@@ -306,12 +307,12 @@ def save_results(folders_dict, results):
     for result in results:
         conf_group_id = result[0]
         output_path = folders_dict[conf_group_id]
-        save_graph(result[1], "Final_graph", output_path)
+        save_graph(result[1], f"Final_graph_{model_configurations_counter[conf_group_id]}", output_path)
         result_dict = OrderedDict()
-        result_dict["initial_opinions"] = results[2]
+        result_dict["initial_opinions"] = result[2]
         result_dict["epochs_data"] = result[3]
         # Saving model configuration (for the entire group)
-        with open(output_path + 'model_configuration_' + str(model_configurations_counter[conf_group_id]) + '.json', 'w', encoding='utf-8') as f:
+        with open(output_path + '/model_configuration_' + str(model_configurations_counter[conf_group_id]) + '.json', 'w', encoding='utf-8') as f:
             json.dump(result_dict, f, ensure_ascii=False, indent=4)
 
         # Updating counter of model_configurations using <conf_group_id> index
@@ -366,6 +367,8 @@ def main():
                 print('Simulations started')
                 try:
                     results = pool.imap_unordered(simulate, iterable_for_multiproc)
+                    # needed to make imap actually blocking
+                    results = [result for result in results]
                 except SimulateError:
                     pool.terminate()
                     pool.join()
