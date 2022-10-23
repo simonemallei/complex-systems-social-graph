@@ -39,6 +39,10 @@ See the Readme file for more information.
 
 Parameters
 ----------
+    base_path : {string}
+        the "base path" in which to find the folder containing all the configurations 
+        necessary for the execution of the simulations. The results and initial data 
+        will also be saved in the "base path"
   
 Returns
 -------
@@ -63,6 +67,10 @@ See the Readme file for more information.
 
 Parameters
 ----------
+    base_path : {string}
+        the "base path" in which to find the folder containing all the configurations 
+        necessary for the execution of the simulations. The results and initial data 
+        will also be saved in the "base path"
   
 Returns
 -------
@@ -86,6 +94,10 @@ to obtain all the configurations necessary for the simulations.
 
 Parameters
 ----------
+    base_path : {string}
+        the "base path" in which to find the folder containing all the configurations 
+        necessary for the execution of the simulations. The results and initial data 
+        will also be saved in the "base path"
   
 Returns
 -------
@@ -166,6 +178,10 @@ configurations and configuration groups (NOT the expanded configurations)
 
 Parameters
 ----------
+    base_path : {string}
+        the "base path" in which to find the folder containing all the configurations 
+        necessary for the execution of the simulations. The results and initial data 
+        will also be saved in the "base path"
     graphs_list : {networkx graph list}
         A list of networkx graphs
     graph_configurations_list : {list of json objects}
@@ -191,7 +207,7 @@ def save_initial_data(base_path, graphs_list, graph_configurations_list, model_c
         abs_path = base_path + "output/" + date.strftime('%Y-%m-%d_%H-%M-%S') + "_" + "config_" + str(idx)
         os.mkdir(abs_path)
 
-        # Saving folder
+        # Saving absolute path
         folders_dict[idx] = abs_path
 
         # Getting and saving graph as a img
@@ -216,7 +232,7 @@ simulations. Note that it is capable of removing non-empty folders.
 Parameters
 ----------
     folders_dict : {dict}
-        A dictionary whose values are all output folders that have been 
+        A dictionary whose values are all output folders paths that have been 
         created to hold simulation results
   
 Returns
@@ -300,7 +316,7 @@ Parameters
 ----------
     folders_dict : {dict}
         A dictionary in which the keys are the ids of the configuration groups and values are all output 
-        folders that have been created to hold simulation results
+        folders paths that have been created to hold simulation results
   
 Returns
 -------
