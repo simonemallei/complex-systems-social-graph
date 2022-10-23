@@ -1,10 +1,12 @@
 import json
 import datetime
 import os
+import string
 import matplotlib.pyplot as plt
 import networkx as nx
 import shutil
 import copy
+import argparse
 from multiprocessing import Pool
 from graph_creation import create_graph
 from simulate_epochs import simulate_epochs
@@ -44,9 +46,9 @@ Returns
         a list of graph configurations
 '''
 
-def get_graph_configurations():
+def get_graph_configurations(base_path):
     try:
-        input_file = open ('configurations/graph-configurations.json', 'r', encoding='utf-8')
+        input_file = open (base_path + 'configurations/graph-configurations.json', 'r', encoding='utf-8')
         configurations_list = json.load(input_file)
         input_file.close()
         return configurations_list
@@ -68,9 +70,9 @@ Returns
         a list of model configurations
 '''
 
-def get_model_configurations():
+def get_model_configurations(base_path):
     try:
-        input_file = open ('configurations/model-configurations.json', 'r', encoding='utf-8')
+        input_file = open (base_path + 'configurations/model-configurations.json', 'r', encoding='utf-8')
         configurations_list = json.load(input_file)
         input_file.close()
         return configurations_list
@@ -92,10 +94,10 @@ Returns
 
 '''
 
-def get_configurations():
+def get_configurations(base_path):
     try:
-        graph_configurations_list = get_graph_configurations()
-        model_configurations_list = get_model_configurations()
+        graph_configurations_list = get_graph_configurations(base_path)
+        model_configurations_list = get_model_configurations(base_path)
         return graph_configurations_list, model_configurations_list
     except (GetGraphConfigurationsError, GetModelConfigurationsError):
         print('An error occurred while reading the configurations files')
@@ -179,27 +181,29 @@ Returns
         that configuration group.
 '''
 
-def save_initial_data(graphs_list, graph_configurations_list, model_configurations_list):
+def save_initial_data(base_path, graphs_list, graph_configurations_list, model_configurations_list):
     date = datetime.datetime.now()
     folders_dict = {}
+    if not os.path.isdir(base_path + "output"):
+        os.mkdir(base_path + "output")
     for idx, model_configuration in enumerate(model_configurations_list):
         # Creating folder
-        path = "output/" + date.strftime('%Y-%m-%d_%H-%M-%S') + "_" + "config_" + str(idx)
-        os.mkdir(path)
+        abs_path = base_path + "output/" + date.strftime('%Y-%m-%d_%H-%M-%S') + "_" + "config_" + str(idx)
+        os.mkdir(abs_path)
 
         # Saving folder
-        folders_dict[idx] = path
+        folders_dict[idx] = abs_path
 
         # Getting and saving graph as a img
         graph = graphs_list[model_configuration["params"]["graph_id"]]
-        save_graph(graph, "Initial_graph", path)
+        save_graph(graph, "Initial_graph", abs_path)
 
         # Saving graph configuration
-        with open(path + '/graph_configuration.json', 'w', encoding='utf-8') as f:
+        with open(abs_path + '/initial_graph_configuration.json', 'w', encoding='utf-8') as f:
             json.dump(graph_configurations_list[model_configuration["params"]["graph_id"]], f, ensure_ascii=False, indent=4)
 
         # Saving model configuration (for the entire group)
-        with open(path + '/model_configuration.json', 'w', encoding='utf-8') as f:
+        with open(abs_path + '/initial_model_configuration.json', 'w', encoding='utf-8') as f:
             json.dump(model_configuration, f, ensure_ascii=False, indent=4)
 
     return folders_dict
@@ -312,7 +316,7 @@ def save_results(folders_dict, results):
         result_dict["initial_opinions"] = result[2]
         result_dict["epochs_data"] = result[3]
         # Saving model configuration (for the entire group)
-        with open(output_path + '/model_configuration_' + str(model_configurations_counter[conf_group_id]) + '.json', 'w', encoding='utf-8') as f:
+        with open(output_path + '/model_configuration_result' + str(model_configurations_counter[conf_group_id]) + '.json', 'w', encoding='utf-8') as f:
             json.dump(result_dict, f, ensure_ascii=False, indent=4)
 
         # Updating counter of model_configurations using <conf_group_id> index
@@ -338,8 +342,15 @@ Returns
 '''
 
 def main():
+    parser = argparse.ArgumentParser(description="Script to execute simulations of the ABEBA model in parallel on multiple processes")
+    parser.add_argument("base_path", type=str, help="The path where the 'configurations' folder was created. In this folder the program expects to find the graphs and model configurations to be used for the simulations.")
+    args = parser.parse_args()
+    if not args.base_path.endswith('/'):
+        base_path = args.base_path + '/'
+    else:
+        base_path = args.base_path
     try:
-        graph_configurations_list, model_configurations_list = get_configurations()
+        graph_configurations_list, model_configurations_list = get_configurations(base_path)
     except GetConfigurationsError:
         print('An error occurred in the get_configurations method. Execution aborted.')
     else:
@@ -355,7 +366,7 @@ def main():
             # Map and Imap (unordered or not) accept a list which will be broken down into various processes. 
             graphs_list = pool.map(graph_generator, graph_configurations_list)
             print('Graph generation completed successfully')
-            folders_dict = save_initial_data(graphs_list, graph_configurations_list, model_configurations_list)
+            folders_dict = save_initial_data(base_path, graphs_list, graph_configurations_list, model_configurations_list)
             try:
                 # Map and Imap (unordered or not) accept a list which will be broken down into various processes. 
                 # For this, it is necessary that each expanded configuration also has the graph in combination. 

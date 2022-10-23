@@ -207,7 +207,7 @@ Returns
 '''
 def simulate_epochs(G, model_params):
     opinions_and_metrics = []
-    initial_opinions = list(nx.get_node_attributes(G, 'opinion'))
+    initial_opinions = list(nx.get_node_attributes(G, 'opinion').values())
     for i in range(model_params["num_epochs"]):
         epoch_data = {}
         try:
@@ -226,7 +226,7 @@ def simulate_epochs(G, model_params):
             print("An error occurred in the simulate_epoch_content_people_recommender method")
             raise simulateEpochsError
         epoch_metrics = compute_metrics(G)
-        epoch_data["opinions"] = list(nx.get_node_attributes(G, 'opinion'))
+        epoch_data["opinions"] = list(nx.get_node_attributes(G, 'opinion').values())
         epoch_data["metrics"] = epoch_metrics
         opinions_and_metrics.append(epoch_data)
     return G, initial_opinions, opinions_and_metrics

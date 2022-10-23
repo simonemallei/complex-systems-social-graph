@@ -69,10 +69,12 @@ def disagreement(G):
     for node_from in G.nodes():
         # For each node, we compute the disagreement in its neighbourhood
         disagreement = [abs(opinion[node_from] - opinion[node_to]) for node_to in G.neighbors(node_from)]
-        dis_dict[node_from] = (np.mean(disagreement), np.var(disagreement))
-
-    means = [dis_dict[node][0] for node in G.nodes()]
-    variances = [dis_dict[node][1] for node in G.nodes()]
+        # It prevents mean and variance on empty disagreements (nodes without friends)
+        if disagreement != []:
+            dis_dict[node_from] = (np.mean(disagreement), np.var(disagreement))
+        
+    means = [dis_dict[node][0] for node in dis_dict.keys()]
+    variances = [dis_dict[node][1] for node in dis_dict.keys()]
     mean = np.mean(means)
     variance = np.sum(variances) / (len(G.nodes()) ** 2)
     return mean, variance

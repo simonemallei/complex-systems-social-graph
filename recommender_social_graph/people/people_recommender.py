@@ -174,7 +174,7 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
                 # note that discarded_friend is a numpy array with 1 element
                 G.remove_edge(node_id, discarded_friend[0])
             else:
-                print("WARNING: node " + node_id + " has only neighbors who have only him as a friend, so no edges have been cut")
+                print("WARNING: node " + str(node_id) + " has only neighbors who have only him as a friend, so no edges have been cut")
     return G
 
 '''
