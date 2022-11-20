@@ -472,7 +472,8 @@ def simulate_epoch_people_recommender(
     estim_strategy = "base", 
     estim_strategy_param = {},
     strategy_people_recommender = "random",
-    substrategy_people_recommender = None
+    substrategy_people_recommender = None,
+    people_recomm_strat_param = {}
     ):
 
     # Sampling randomly the activating nodes
@@ -487,7 +488,7 @@ def simulate_epoch_people_recommender(
     # Estimating opinion by the recommender
     G = upd_estim(G, posting_nodes_list, strategy = estim_strategy, strat_param = estim_strategy_param)
     try:
-      G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender)
+      G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender, strat_param=people_recomm_strat_param)
     except PeopleRecommenderError:
       print("the People Recommender failed to recommend a new friend to a given node")
       raise SimulateEpochPeopleRecommenderError

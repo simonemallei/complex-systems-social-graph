@@ -124,7 +124,8 @@ def simulate_epoch_content_people_recommender(
         strategy_content_recommender = "random",
         strat_param_content_recommender = {},
         strategy_people_recommender = "random",
-        substrategy_people_recommender = None
+        substrategy_people_recommender = None,
+        strat_param_people_recommender = {}
     ):
 
     # Sampling randomly the activating nodes
@@ -143,7 +144,7 @@ def simulate_epoch_content_people_recommender(
     # Estimating opinion by the recommender
     G = upd_estim(G, posting_nodes_list, strategy = estim_strategy, strat_param = estim_strategy_param)
     try:
-      G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender)
+      G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender, strat_param_people_recommender)
     except PeopleRecommenderError:
       print("the People Recommender failed to recommend a new friend to a given node")
       raise SimulateEpochContentPeopleRecommenderError
@@ -220,7 +221,8 @@ def simulate_epochs(G, model_params):
                         strategy_content_recommender = model_params["strategy_content_recommender"],
                         strat_param_content_recommender = model_params["strat_param_content_recommender"], 
                         strategy_people_recommender = model_params["strategy_people_recommender"],
-                        substrategy_people_recommender = model_params["substrategy_people_recommender"]
+                        substrategy_people_recommender = model_params["substrategy_people_recommender"],
+                        strat_param_people_recommender = model_params["strat_param_people_recommender"]
                     )
         except SimulateEpochContentPeopleRecommenderError:
             print("An error occurred in the simulate_epoch_content_people_recommender method")
