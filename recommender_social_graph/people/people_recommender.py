@@ -38,6 +38,14 @@ class StrategyTopologyBasedError(Exception):
     """Raised when an error occurred in the strategy_topology_based method"""
     pass
 
+class StrategyOpinionEstimationTopologyMixedError(Exception):
+    """Raised when an error occurred in the strategy_opinion_estimation_topology_mixed method"""
+    pass
+
+class StratParamIsNotEmpty(Exception):
+    """Raised when strat_param is not empty and the selected strategy is not opinion_estimation_topology_mixed"""
+    pass
+
 '''
 strategy_opinion_estimation_based applies a strategy based on the estimation of the nodes' 
 opinions: the distances between the estimation of the opinion of the current node and that 
@@ -214,55 +222,93 @@ def strategy_topology_based(G, substrategy, neigs, node_id):
 
     return res_dict
 
-
 '''
-breadth_first_search performs a simple BFS algorithm to find all reachable 
-nodes from the {source_node} node.
-This method is used to discover all nodes of each isolated component of the graph
+strategy_opinion_estimation_topology_mixed applies the opinion_estimation_topology_mixed 
+strategy: it launches the two strategies opinion_estimation_based and topology_based, 
+and puts the results together by taking the position of the recommendable nodes, ordered 
+by probability of extraction. If the same node is present in the recommendable list of both 
+strategies, its positions are averaged. Otherwise only the single existing position is taken. 
 
 Parameters
 ----------
     G : {networkx.Graph}
         The graph containing the social network.
-    source_node : {int}
-        The source node ID. The exploration of the graph will start from this node
+    G_fake : {networkx.Graph}
+        The fake graph. It contains all the joined components of the graph G, with a possible 
+        addition of other edges up to 5% of the total. It can be None if the parameter that 
+        controls its generation in the people recommender has been set to False.
+    substrategy : {string}
+        Possible values are: counteract_homophily, favour_homophily
+    neigs : {list of ints}
+        List of friend node ids of the current node
+    node_id : {int}
+        current node id
 
 Returns
 -------
-    visited : {list of ints}         
-            The list containing all found nodes
+    res_dict : {dict}         
+            It contains a probability distribution on candidate nodes to be recommended.
 '''
 
-def breadth_first_search(G, source_node):
-    # BFS
-    visited, queue = [], []
-    visited.append(source_node)
-    queue.append(source_node)
-    while queue:
-        next = queue.pop(0)
-        next_neigs = list(nx.neighbors(G, next))
-        for neig in next_neigs:
-            if neig not in visited:
-                visited.append(neig)
-                queue.append(neig)
-    return visited
+def strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, node_id):
+    if (substrategy == "favour_homophily") or (substrategy == "counteract_homophily"):
+        ordered_op_estim_based_dict = {k: v for k, v in sorted(strategy_opinion_estimation_based(G, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
+        ordered_top_based_dict = {k: v for k, v in sorted(strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
+        op_estim_candidates = ordered_op_estim_based_dict.keys()
+        top_candidates = ordered_top_based_dict.keys()
+        all_candidates = list(set(op_estim_candidates) | set(top_candidates))
+        positions_mixed_dict = {}
+        for candidate in all_candidates:
+            position_op_estim = None
+            position_top = None
+            if (candidate in op_estim_candidates) and (candidate in top_candidates):
+                position_op_estim = list(op_estim_candidates).index(candidate) + 1
+                position_top = list(top_candidates).index(candidate) + 1
+                position = (position_op_estim + position_top) / 2
+            elif (candidate in op_estim_candidates) and (candidate not in top_candidates):
+                position = list(op_estim_candidates).index(candidate) + 1
+            else:
+                position = list(top_candidates).index(candidate) + 1
+
+            positions_mixed_dict[candidate] = position
+        
+        if positions_mixed_dict:
+            positions_distribution = special.softmax(list(positions_mixed_dict.values()))
+        else:
+            raise StrategyOpinionEstimationTopologyMixedError
+        res_dict = dict(zip(positions_mixed_dict.keys(), positions_distribution))
+    else:
+        try:
+            raise SubstrategyNotRecognized
+        except SubstrategyNotRecognized:
+            raise StrategyOpinionEstimationTopologyMixedError
+
+    return res_dict
 
 '''
 people_recommender performs a people recommender system.
 It performs the recommendation routine on the nodes contained 
 in {nodes}.
-The recommender routine depends on which strategy and substrategy are chosen 
-(by default, the method use the "random" one). 
-At the beginning of the method code, the recommendation data of the previous epoch 
+
+At the beginning of the method code, a check is made on the {strat_param} parameter: 
+in fact, it is only used together with the opinion_estimation_topology_mixed strategy.
+That parameter allows to use or not the hypothesis according to which there is noise in 
+the graph which leads to a lack of some connections between nodes with similar opinions.
+Then, the recommendation data of the previous epoch 
 concerning all those nodes that do not publish content in this epoch are deleted. 
 Instead, the data of those nodes that will publish content in this epoch are overwritten 
 as soon as the routine chooses the new node.
-Then, if the topology based strategy has been chosen, a fake graph is created starting 
-from the real one. In this fake graph the isolated components of the real graph are 
+Then, if the topology based strategy has been chosen, it is assumed that the {strat_param}
+parameter is set to True, so a fake graph is created starting from the real one 
+(otherwise there is a risk of failing to recommend any node to the current node).
+In this fake graph the isolated components of the real graph are 
 connected together and then other random edges are inserted up to a total of 5% of 
 inserted false edges. This graph will be kept for the entire epoch and used by the 
 recommender to explore new nodes to recommend. Note that it remains the same for all 
 nodes acted upon by the recommender in the current epoch.
+Finally, the correct method is launched based on the selected strategy. (by default, the 
+method use the "random" one). Among the various parameters, the selected sub-strategy will 
+also be passed to it.
 
 Note that, at the end of the method, a node is removed from friends to avoid getting a 
 fully connected graph. As the code is currently implemented, this node cannot be the 
@@ -289,7 +335,13 @@ Returns
   G : {networkx.Graph}
       The updated graph.
 '''
-def people_recommender(G, nodes, strategy="random", substrategy=None):
+def people_recommender(G, nodes, strategy="random", substrategy=None, strat_param={}):
+    if strategy != "opinion_estimation_topology_mixed" and strat_param:
+        try:
+            raise StratParamIsNotEmpty
+        except StratParamIsNotEmpty:
+            raise PeopleRecommenderError
+
     # Deletes the data of the previous epoch.
     # For performance reasons, the attribute of the nodes on which to run the recommendation system is not deleted
     # because it will be overwritten
@@ -301,32 +353,22 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
     all_nodes = list(G.nodes)
 
     # Preparing G_fake for topology based strategy
-    if strategy == 'topology_based': 
+    G_fake = None
+    if strategy == 'topology_based' or (strategy == 'opinion_estimation_topology_mixed' and strat_param.get('connected_components', True)): 
         # before launching the BFS for the selected sub-strategy, we look for all the disconnected components 
         # of the graph to connect them. Note that the resulting graph will only be used on the all posting nodes but only in current epoch.
         number_components = nx.number_connected_components(G)
-        G_fake = None
         # the components are reconnected only if there are at least 2
         if number_components > 1:
             G_fake = copy.deepcopy(G)
             old_nodes_found = []
-            nodes_not_found = all_nodes
-            # No need to explore the last component. The nodes that have not yet been found are the only ones present in it
-            for _ in range(number_components-1):
-                chosen_node = np.random.choice(nodes_not_found, size=1, replace=False) 
-                # performs an exploration with BFS Algorithm
-                nodes_found = breadth_first_search(G, chosen_node[0])
+            components = nx.connected_components(G)
+            for nodes_component in components:
                 if old_nodes_found:
                     node_source = np.random.choice(old_nodes_found, size=1, replace=False)
-                    node_target = np.random.choice(nodes_found, size=1, replace=False)
+                    node_target = np.random.choice(list(nodes_component), size=1, replace=False)
                     G_fake.add_edge(node_source[0], node_target[0])
-                old_nodes_found += nodes_found
-                nodes_not_found = list(set(nodes_not_found) - set(old_nodes_found))
-            
-            # Now there is only one component left to connect, which nodes know about without having to explore it
-            node_source = np.random.choice(old_nodes_found, size=1, replace=False)
-            node_target = np.random.choice(nodes_not_found, size=1, replace=False)
-            G_fake.add_edge(node_source[0], node_target[0])
+                old_nodes_found += list(nodes_component)
             
         # The total number of arches added, in the end, will be equal to 5% of the total number of arches
         number_edges_to_insert = (5 * G.number_of_edges() // 100) - (number_components - 1)
@@ -347,11 +389,13 @@ def people_recommender(G, nodes, strategy="random", substrategy=None):
                 raise PeopleRecommenderError
         elif strategy == 'topology_based':
             try:
-                if G_fake is not None:
-                    res_dict = strategy_topology_based(G_fake, substrategy, neigs, node_id)
-                else:
-                    res_dict = strategy_topology_based(G, substrategy, neigs, node_id)
+                res_dict = strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id)
             except StrategyTopologyBasedError:
+                raise PeopleRecommenderError
+        elif strategy == 'opinion_estimation_topology_mixed':
+            try:
+                res_dict = strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, node_id)
+            except StrategyOpinionEstimationTopologyMixedError:
                 raise PeopleRecommenderError
         else:
             try:
