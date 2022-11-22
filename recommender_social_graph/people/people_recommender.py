@@ -49,13 +49,12 @@ class StratParamIsNotEmpty(Exception):
 '''
 strategy_opinion_estimation_based applies a strategy based on the estimation of the nodes' 
 opinions: the distances between the estimation of the opinion of the current node and that 
-of the other nodes are calculated. The error of the estimations is also used if present 
-(i.e. if the kalman filter strategy was used to calculate the estimate). Some nodes will 
-have no opinion, and therefore cannot be recommended. The closest or furthest opinion 
-is favored depending on whether the chosen sub-strategy is favor homophily or counteract 
-homophily.
-Note that it is impossible that there are no estimations of the nodes' opinions, 
-unless a zero value of nodes that can publish content has been set in the model. 
+of the other nodes are calculated. The error of the estimations is also used
+(note that only the opinion estimation strategy using the kalman filter will change the value).  
+The closest or furthest opinion is favored depending on whether the chosen sub-strategy is 
+favor homophily or counteract homophily.
+Note that each node will always have an estimation of its opinion, because for each node a starting 
+value is fixed which will then be updated as the epochs go by.
 
 Parameters
 ----------
@@ -81,17 +80,14 @@ def strategy_opinion_estimation_based(G, substrategy, neigs, node_id):
     for key in nodes_with_estimated_opinion.keys():
         if key not in neigs and key != node_id:
             abs_distance = abs(nodes_with_estimated_opinion[node_id] - nodes_with_estimated_opinion[key])
-            if bool(posteri_errors_dict):
-                posteri_error_subject = posteri_errors_dict[node_id]
-                posteri_errors_suggested_node = posteri_errors_dict[key]
-                # it prevents division by zero and sets a minimum achievable value
-                if posteri_error_subject >= 0 and posteri_error_subject <= 0.000000001:
-                    posteri_error_subject = 0.000000001
-                if posteri_errors_suggested_node >= 0 and posteri_errors_suggested_node <= 0.000000001:
-                    posteri_errors_suggested_node = 0.000000001
-                distances_dict[key] = abs_distance / (posteri_error_subject + posteri_errors_suggested_node)
-            else:
-                distances_dict[key] = abs_distance
+            posteri_error_subject = posteri_errors_dict[node_id]
+            posteri_errors_suggested_node = posteri_errors_dict[key]
+            # it prevents division by zero and sets a minimum achievable value
+            if posteri_error_subject >= 0 and posteri_error_subject <= 0.000000001:
+                posteri_error_subject = 0.000000001
+            if posteri_errors_suggested_node >= 0 and posteri_errors_suggested_node <= 0.000000001:
+                posteri_errors_suggested_node = 0.000000001
+            distances_dict[key] = abs_distance / (posteri_error_subject + posteri_errors_suggested_node)
     if substrategy == "counteract_homophily":
         if distances_dict:
             distances_distribution = special.softmax(list(distances_dict.values()))
@@ -99,7 +95,7 @@ def strategy_opinion_estimation_based(G, substrategy, neigs, node_id):
             try:
                 raise SubstrategyError
             except SubstrategyError:
-                print('An error occurred in substrategy ' + substrategy)
+                print('ERROR! An error occurred in substrategy: ' + substrategy+ '\n')
                 raise StrategyOpinionEstimationBasedError
     elif substrategy == "favour_homophily":
         if distances_dict:
@@ -109,12 +105,13 @@ def strategy_opinion_estimation_based(G, substrategy, neigs, node_id):
             try:
                 raise SubstrategyError
             except SubstrategyError:
-                print('An error occurred in substrategy ' + substrategy)
+                print('ERROR! An error occurred in substrategy: ' + substrategy + '\n')
                 raise StrategyOpinionEstimationBasedError
     else:
         try:
             raise SubstrategyNotRecognized
         except SubstrategyNotRecognized:
+            print('ERROR! Substrategy not recognized\n')
             raise StrategyOpinionEstimationBasedError
 
     #recommended_friend = np.random.choice(list(distances_dict.keys()), size=1, replace=False, p=distances_distribution)
@@ -182,7 +179,7 @@ def strategy_topology_based(G, substrategy, neigs, node_id):
             try:
                 raise SubstrategyError
             except SubstrategyError:
-                print('An error occurred in substrategy ' + substrategy)
+                print('ERROR! An error occurred in substrategy: ' + substrategy + '\n')
                 raise StrategyTopologyBasedError
         res_dict = dict(zip(overlapping_dict.keys(), overlapping_distribution))
 
@@ -210,7 +207,7 @@ def strategy_topology_based(G, substrategy, neigs, node_id):
             try:
                 raise SubstrategyError
             except SubstrategyError:
-                print('An error occurred in substrategy ' + substrategy)
+                print('ERROR! An error occurred in substrategy: ' + substrategy + '\n')
                 raise StrategyTopologyBasedError
         res_dict = dict(zip(dist_not_friends.keys(), distances_distribution))
 
@@ -218,6 +215,7 @@ def strategy_topology_based(G, substrategy, neigs, node_id):
         try:
             raise SubstrategyNotRecognized
         except SubstrategyNotRecognized:
+            print('ERROR! Substrategy not recognized\n')
             raise StrategyTopologyBasedError
 
     return res_dict
@@ -252,35 +250,41 @@ Returns
 
 def strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, node_id):
     if (substrategy == "favour_homophily") or (substrategy == "counteract_homophily"):
-        ordered_op_estim_based_dict = {k: v for k, v in sorted(strategy_opinion_estimation_based(G, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
-        ordered_top_based_dict = {k: v for k, v in sorted(strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
-        op_estim_candidates = ordered_op_estim_based_dict.keys()
-        top_candidates = ordered_top_based_dict.keys()
-        all_candidates = list(set(op_estim_candidates) | set(top_candidates))
-        positions_mixed_dict = {}
-        for candidate in all_candidates:
-            position_op_estim = None
-            position_top = None
-            if (candidate in op_estim_candidates) and (candidate in top_candidates):
-                position_op_estim = list(op_estim_candidates).index(candidate) + 1
-                position_top = list(top_candidates).index(candidate) + 1
-                position = (position_op_estim + position_top) / 2
-            elif (candidate in op_estim_candidates) and (candidate not in top_candidates):
-                position = list(op_estim_candidates).index(candidate) + 1
-            else:
-                position = list(top_candidates).index(candidate) + 1
-
-            positions_mixed_dict[candidate] = position
-        
-        if positions_mixed_dict:
-            positions_distribution = special.softmax(list(positions_mixed_dict.values()))
-        else:
+        try:
+            ordered_op_estim_based_dict = {k: v for k, v in sorted(strategy_opinion_estimation_based(G, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
+            ordered_top_based_dict = {k: v for k, v in sorted(strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
+        except (StrategyOpinionEstimationBasedError, StrategyTopologyBasedError) as error:
+            print(error)
             raise StrategyOpinionEstimationTopologyMixedError
-        res_dict = dict(zip(positions_mixed_dict.keys(), positions_distribution))
+        else:
+            op_estim_candidates = ordered_op_estim_based_dict.keys()
+            top_candidates = ordered_top_based_dict.keys()
+            all_candidates = list(set(op_estim_candidates) | set(top_candidates))
+            positions_mixed_dict = {}
+            for candidate in all_candidates:
+                position_op_estim = None
+                position_top = None
+                if (candidate in op_estim_candidates) and (candidate in top_candidates):
+                    position_op_estim = list(op_estim_candidates).index(candidate) + 1
+                    position_top = list(top_candidates).index(candidate) + 1
+                    position = (position_op_estim + position_top) / 2
+                elif (candidate in op_estim_candidates) and (candidate not in top_candidates):
+                    position = list(op_estim_candidates).index(candidate) + 1
+                else:
+                    position = list(top_candidates).index(candidate) + 1
+
+                positions_mixed_dict[candidate] = position
+            
+            if positions_mixed_dict:
+                positions_distribution = special.softmax(list(positions_mixed_dict.values()))
+            else:
+                raise StrategyOpinionEstimationTopologyMixedError
+            res_dict = dict(zip(positions_mixed_dict.keys(), positions_distribution))
     else:
         try:
             raise SubstrategyNotRecognized
         except SubstrategyNotRecognized:
+            print('ERROR! Substrategy not recognized\n')
             raise StrategyOpinionEstimationTopologyMixedError
 
     return res_dict
@@ -294,10 +298,7 @@ At the beginning of the method code, a check is made on the {strat_param} parame
 in fact, it is only used together with the opinion_estimation_topology_mixed strategy.
 That parameter allows to use or not the hypothesis according to which there is noise in 
 the graph which leads to a lack of some connections between nodes with similar opinions.
-Then, the recommendation data of the previous epoch 
-concerning all those nodes that do not publish content in this epoch are deleted. 
-Instead, the data of those nodes that will publish content in this epoch are overwritten 
-as soon as the routine chooses the new node.
+Then, the recommendation data of the previous epoch are deleted. 
 Then, if the topology based strategy has been chosen, it is assumed that the {strat_param}
 parameter is set to True, so a fake graph is created starting from the real one 
 (otherwise there is a risk of failing to recommend any node to the current node).
@@ -309,12 +310,12 @@ nodes acted upon by the recommender in the current epoch.
 Finally, the correct method is launched based on the selected strategy. (by default, the 
 method use the "random" one). Among the various parameters, the selected sub-strategy will 
 also be passed to it.
-
-Note that, at the end of the method, a node is removed from friends to avoid getting a 
-fully connected graph. As the code is currently implemented, this node cannot be the 
-one just added to friends, nor can it be a friend node that has no other friends. This 
-last constraint serves to avoid penalizing nodes with few friends, which, otherwise, 
-risk being isolated.
+Finally, the data on the new nodes to recommend that has been collected is saved in the graph 
+and the new arcs are created. Note that, at the end of the method, a node is removed from 
+friends to avoid getting a fully connected graph. As the code is currently implemented, 
+this node cannot be the one just added to friends, nor can it be a friend node that has no 
+other friends. This last constraint serves to avoid penalizing nodes with few friends, which, 
+otherwise, risk being isolated.
 
 Parameters
 ----------
@@ -343,13 +344,12 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
             raise PeopleRecommenderError
 
     # Deletes the data of the previous epoch.
-    # For performance reasons, the attribute of the nodes on which to run the recommendation system is not deleted
-    # because it will be overwritten
-    person_recommended_dict = nx.get_node_attributes(G, name='person_recommended')
-    for key in person_recommended_dict.keys():
-        if key not in nodes:
-            del G.nodes[key]['person_recommended']
+    old_person_recommended_dict = nx.get_node_attributes(G, name='person_recommended')
+    for key in old_person_recommended_dict.keys():
+        del G.nodes[key]['person_recommended']
 
+    # Initialize data
+    person_recommended_dict = {}
     all_nodes = list(G.nodes)
 
     # Preparing G_fake for topology based strategy
@@ -373,6 +373,9 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
         # The total number of arches added, in the end, will be equal to 5% of the total number of arches
         number_edges_to_insert = (5 * G.number_of_edges() // 100) - (number_components - 1)
         for _ in range(number_edges_to_insert):
+            # This condition happens if the number of components is equal to 1 and only at the first iteration
+            if G_fake is None:
+                G_fake = copy.deepcopy(G)
             chosen_nonedge  = random.choice(list(nx.non_edges(G_fake)))
             G_fake.add_edge(chosen_nonedge[0], chosen_nonedge[1])
 
@@ -386,39 +389,47 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
             try:
                 res_dict = strategy_opinion_estimation_based(G, substrategy, neigs, node_id)
             except StrategyOpinionEstimationBasedError:
+                print('ERROR! An error occurred in strategy_opinion_estimation_based method\n')
                 raise PeopleRecommenderError
         elif strategy == 'topology_based':
             try:
                 res_dict = strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id)
             except StrategyTopologyBasedError:
+                print('ERROR! An error occurred in strategy_topology_based method\n')
                 raise PeopleRecommenderError
         elif strategy == 'opinion_estimation_topology_mixed':
             try:
                 res_dict = strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, node_id)
             except StrategyOpinionEstimationTopologyMixedError:
+                print('ERROR! An error occurred in strategy_opinion_estimation_topology_mixed method\n')
                 raise PeopleRecommenderError
         else:
             try:
                 raise StrategyNotRecognized
             except StrategyNotRecognized:
+                print('ERROR! Strategy not recognized\n')
                 raise PeopleRecommenderError
 
         if recommended_friend is None:
             recommended_friend = np.random.choice(list(res_dict.keys()), size=1, replace=False, p=list(res_dict.values()))
+            # note that recommended_friend is a numpy array with 1 element
+            person_recommended_dict[node_id] = recommended_friend[0]
 
-        nx.set_node_attributes(G, {node_id: recommended_friend[0]}, 'person_recommended')
-        # note that recommended_friend is a numpy array with 1 element
-        G.add_edge(node_id, recommended_friend[0])
+    nx.set_node_attributes(G, person_recommended_dict, 'person_recommended')
+    for key in person_recommended_dict.keys():
+        G.add_edge(key, person_recommended_dict[key])
         # deleting a random edge to prevent fully connected graphs.
         # it only keeps neighbors who have at least two friends (node_id and another)
-        # otherwise, the unpopular nodes would be slowly isolated from the others.
+        # and that they are not the newly added node,
+        # otherwise the unpopular nodes would be slowly isolated from the others.
+        neigs = [neig for neig in list(nx.neighbors(G, key)) if neig != person_recommended_dict[key]]
         neigs_popular = [neig for neig in neigs if len(list(nx.neighbors(G, neig))) > 1]
         if neigs_popular:
             discarded_friend = np.random.choice(neigs_popular, size=1, replace=False)
             # note that discarded_friend is a numpy array with 1 element
-            G.remove_edge(node_id, discarded_friend[0])
+            G.remove_edge(key, discarded_friend[0])
         else:
-            print("WARNING: node " + str(node_id) + " hasn't friends (except the one just added) or has only neighbors who have only him as a friend, so no edges have been cut")
+            print("WARNING: node " + str(key) + " hasn't friends (except the one just added) or has only neighbors who have only him as a friend, so no edges have been cut\n")
     return G
 
 '''

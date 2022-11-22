@@ -146,7 +146,7 @@ def simulate_epoch_content_people_recommender(
     try:
       G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender, strat_param_people_recommender)
     except PeopleRecommenderError:
-      print("the People Recommender failed to recommend a new friend to a given node")
+      print("ERROR! The People Recommender failed to recommend a new friend to a given node.\n")
       raise SimulateEpochContentPeopleRecommenderError
     return G
 

@@ -57,7 +57,7 @@ def get_graph_configurations(base_path):
         input_file.close()
         return configurations_list
     except OSError:
-        print('An error occurred while reading the graph configurations file')
+        print('ERROR! An error occurred while reading the graph configurations file.\n')
         raise GetGraphConfigurationsError
 
 '''
@@ -85,7 +85,7 @@ def get_model_configurations(base_path):
         input_file.close()
         return configurations_list
     except OSError:
-        print('An error occurred while reading the model configurations file')
+        print('ERROR! An error occurred while reading the model configurations file.\n')
         raise GetModelConfigurationsError
 
 '''
@@ -112,7 +112,7 @@ def get_configurations(base_path):
         model_configurations_list = get_model_configurations(base_path)
         return graph_configurations_list, model_configurations_list
     except (GetGraphConfigurationsError, GetModelConfigurationsError):
-        print('An error occurred while reading the configurations files')
+        print('ERROR! An error occurred while reading the configurations files.\n')
         raise GetConfigurationsError
 
 '''
@@ -299,7 +299,7 @@ def simulate(data):
     try:
         final_graph, initial_opinions, epochs_data = simulate_epochs(graph, model_configuration_expanded)
     except :
-        print('An error occurred in the simulate_epochs method.')
+        print('ERROR! An error occurred in the simulate_epochs method.\n')
         raise SimulateError
     return [conf_group_id, final_graph, initial_opinions, epochs_data]
 
@@ -368,20 +368,20 @@ def main():
     try:
         graph_configurations_list, model_configurations_list = get_configurations(base_path)
     except GetConfigurationsError:
-        print('An error occurred in the get_configurations method. Execution aborted.')
+        print('ERROR! An error occurred in the get_configurations method. Execution aborted.\n')
     else:
         model_configurations_list_expanded = expand_configurations_list(model_configurations_list)
         try:
             if len(model_configurations_list_expanded) == 0:
                 raise ConfigurationExpandedIsNoneError
         except ConfigurationExpandedIsNoneError:
-            print('expand_configurations_list method returned None value. Execution aborted.')
+            print('ERROR! expand_configurations_list method returned None value. Execution aborted.\n')
         else:
             pool = Pool()
-            print('Graph generation started')
+            print('Graph generation started.\n')
             # Map and Imap (unordered or not) accept a list which will be broken down into various processes. 
             graphs_list = pool.map(graph_generator, graph_configurations_list)
-            print('Graph generation completed successfully')
+            print('Graph generation completed successfully.\n')
             folders_dict = save_initial_data(base_path, graphs_list, graph_configurations_list, model_configurations_list)
             try:
                 # Map and Imap (unordered or not) accept a list which will be broken down into various processes. 
@@ -389,9 +389,9 @@ def main():
                 # Note that to avoid modifying the original Graph objects, a copy of them is used.
                 iterable_for_multiproc = [[model_configuration_expanded, copy.deepcopy(graphs_list[model_configuration_expanded["graph_id"]])] for model_configuration_expanded in model_configurations_list_expanded]
             except IndexError:
-                print('The graph_id index exceeds the maximum length of graph_list')
+                print('ERROR! The graph_id index exceeds the maximum length of graph_list.\n')
             else:
-                print('Simulations started')
+                print('Simulations started\n')
                 try:
                     results = pool.imap_unordered(simulate, iterable_for_multiproc)
                     # needed to make imap actually blocking
@@ -400,14 +400,14 @@ def main():
                     pool.terminate()
                     pool.join()
                     initial_data_cleaner(folders_dict)
-                    print('simulate method raised an exception. Execution aborted.')
+                    print('ERROR! simulate method raised an exception. Execution aborted.\n')
                 else:
                     pool.close()
                     pool.join()
-                    print('Simulations completed successfully')
-                    print('Started saving the simulation results')
+                    print('Simulations completed successfully\n')
+                    print('Started saving the simulation results\n')
                     save_results(folders_dict, results)
-                    print('Finished saving the simulation results')
+                    print('Finished saving the simulation results\n')
                     
 if __name__ == "__main__":
     main()
