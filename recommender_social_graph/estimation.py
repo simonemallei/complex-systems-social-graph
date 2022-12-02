@@ -1,5 +1,10 @@
 import networkx as nx
 
+
+class EstimationStrategyError(Exception):
+    """Raised when the estimation strategy has an unrecognized value"""
+    pass
+
 '''
 upd_estim updates the estimation of each node that has posted
 its opinion in the last epoch.
@@ -76,6 +81,8 @@ def upd_estim(G, posting_nodes, strategy = "base", strat_param = {}):
             to_estim[node_id] = []
         nx.set_node_attributes(G, posteri_opinion, name='posteri_opinion')
         nx.set_node_attributes(G, posteri_error, name='posteri_error')
+    else:
+        raise EstimationStrategyError(f"The strategy '{strategy}' is not recognized.")
     nx.set_node_attributes(G, to_estim, name='to_estimate')  
     nx.set_node_attributes(G, estimated, name='estimated_opinion')
     return G

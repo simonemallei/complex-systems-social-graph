@@ -5,6 +5,7 @@ from content.content_recommender import monitor_feed, content_recommender
 from estimation import upd_estim
 from people.people_recommender import people_recommender, PeopleRecommenderError
 from metrics import polarisation, sarle_bimodality, disagreement
+from content.content_recommender import ContentRecommenderError
 from content.metrics import feed_entropy, feed_satisfaction
 from people.people_recommender_metrics import opinion_estimation_accuracy, recommendation_homophily_rate
 
@@ -145,9 +146,10 @@ def simulate_epoch_content_people_recommender(
     G = upd_estim(G, posting_nodes_list, strategy = estim_strategy, strat_param = estim_strategy_param)
     try:
       G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender, strat_param_people_recommender)
-    except PeopleRecommenderError:
+    except (PeopleRecommenderError, ContentRecommenderError):
       print("ERROR! The People Recommender failed to recommend a new friend to a given node.\n")
       raise SimulateEpochContentPeopleRecommenderError
+    
     return G
 
 '''

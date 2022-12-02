@@ -3,7 +3,16 @@ import numpy as np
 from collections import defaultdict
 import random
 from abeba_methods import compute_activation, compute_post
-from estimation import upd_estim
+from estimation import upd_estim, EstimationStrategyError
+
+class ContentRecommenderError(Exception):
+    """Raised when an error occurred in the content_recommender method"""
+    pass
+
+class StrategyError(Exception):
+    """Raised when the param 'strategy' has a not regnized value"""
+    pass
+
 '''
 content_recommender performs the recommender system by content.
 It performs the recommendation routine on the nodes contained 
@@ -105,7 +114,7 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
                     prev_feed = feed.get(node_id, [])
                     new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
         elif not (strategy == "no_recommender"):
-            raise ValueError("Strategy not defined. Use one of the following: " +
+            raise StrategyError("Strategy not defined. Use one of the following: " +
                              "[\"no_recommender\", \"random\", \"normal\", \"nudge\", \"similar\", \"unsimilar\"]")
     # Updating feed with recommended content  
     nx.set_node_attributes(G, new_feed, name='feed')
@@ -203,15 +212,19 @@ def simulate_epoch_content_recommender(G, rate_updating_nodes, epsilon = 0.0, st
     # Debug print
     #print(f"Activated nodes (consuming their feed): {act_nodes}")
 
-    # Executing content recommender system on activated nodes
-    G = content_recommender(G, act_nodes, strategy, strat_param)
-    # Monitoring feeds that are going to be cleared 
-    G = monitor_feed(G, act_nodes)
-    # Executing activation phase: activated nodes will consume their feed
-    G = compute_activation(G, act_nodes)
+    try:
+        # Executing content recommender system on activated nodes
+        G = content_recommender(G, act_nodes, strategy, strat_param)
+        # Monitoring feeds that are going to be cleared 
+        G = monitor_feed(G, act_nodes)
+        # Executing activation phase: activated nodes will consume their feed
+        G = compute_activation(G, act_nodes)
 
-    # Executing posting phase: activated nodes will post in their neighbours' feed
-    G = compute_post(G, act_nodes, epsilon)
-    # Estimating opinion by the recommender
-    G = upd_estim(G, strategy = estim_strategy, strat_param = estim_strat_param)
+        # Executing posting phase: activated nodes will post in their neighbours' feed
+        G = compute_post(G, act_nodes, epsilon)
+        # Estimating opinion by the recommender
+        G = upd_estim(G, strategy = estim_strategy, strat_param = estim_strat_param)
+    except (StrategyError, EstimationStrategyError) as cause:
+        raise ContentRecommenderError(f"Error of content recommender: {cause}") from cause
+        
     return G
