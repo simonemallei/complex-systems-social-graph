@@ -327,9 +327,15 @@ Parameters
         The string that defines the strategy used by the recommender system.
         There are two possible strategies that can be combined with two possible sub-strategies,
         in addition to the random strategy:
-        Strategies: opinion_estimation_based, topology_based
+        Strategies: random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
     Substrategies: {String} default: None
         Possible values are: counteract_homophily, favour_homophily
+    strat_param: {dictionary} default: {"connected_components": 1}
+        dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
+        Elements:
+        Connected_components: {0 or 1} default: 1 (True)
+        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
@@ -354,7 +360,7 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
 
     # Preparing G_fake for topology based strategy
     G_fake = None
-    if strategy == 'topology_based' or (strategy == 'opinion_estimation_topology_mixed' and strat_param.get('connected_components', True)): 
+    if strategy == 'topology_based' or (strategy == 'opinion_estimation_topology_mixed' and strat_param.get('connected_components', 1)): 
         # before launching the BFS for the selected sub-strategy, we look for all the disconnected components 
         # of the graph to connect them. Note that the resulting graph will only be used on the all posting nodes but only in current epoch.
         number_components = nx.number_connected_components(G)
@@ -467,9 +473,15 @@ Parameters
         The string that defines the strategy used by the recommender system.
         There are two possible strategies that can be combined with two possible sub-strategies,
         in addition to the random strategy:
-        Strategies: opinion_estimation_based, topology_based
-    Substrategies: {String} default: None
+        Strategies: random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
+    substrategy_people_recommender: {String} default: None
         Possible values are: counteract_homophily, favour_homophily
+    people_recomm_strat_param: {dictionary} default: {"connected_components": 1}
+        dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
+        Elements:
+        Connected_components: {0 or 1} default: 1 (True)
+        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
