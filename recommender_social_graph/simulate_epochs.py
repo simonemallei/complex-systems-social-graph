@@ -105,11 +105,17 @@ Parameters
               value: threshold value used by "unsimilar" strategy.
     strategy_people_recommender : {String} default: "random"
         The string that defines the strategy used by the recommender system.
-        There are two possible strategies that can be combined with two possible sub-strategies,
-        in addition to the random strategy:
-        Strategies: opinion_estimation_based, topology_based
-    Substrategies: {String} default: None
-        Possible values are: counteract_homophily, favour_homophily
+        There are several possible strategies that can be combined with two possible sub-strategies:
+        Strategies: no_recommender, random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
+    substrategy_people_recommender: {String} default: None
+        Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
+        opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
+    strat_param_people_recommender: {dictionary} default: {"connected_components": 1}
+        dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
+        Elements:
+        Connected_components: 0 or 1 default: 1 (True)
+        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
@@ -197,11 +203,17 @@ Parameters
                     value: threshold value used by "unsimilar" strategy.
             strategy_people_recommender : {String} default: "random"
                 The string that defines the strategy used by the recommender system.
-                There are two possible strategies that can be combined with two possible sub-strategies,
-                in addition to the random strategy:
-                Strategies: opinion_estimation_based, topology_based
-            Substrategies: {String} default: None
-                Possible values are: counteract_homophily, favour_homophily
+                There are several possible strategies that can be combined with two possible sub-strategies:
+                Strategies: no_recommender, random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
+            substrategy_people_recommender: {String} default: None
+                Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
+                opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
+            strat_param_people_recommender: {dictionary} default: {"connected_components": 1}
+                dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
+                Elements:
+                Connected_components: 0 or 1 default: 1 (True)
+                If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+                If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------

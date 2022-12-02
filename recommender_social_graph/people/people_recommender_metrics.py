@@ -2,8 +2,10 @@ import networkx as nx
 import numpy as np
 '''
 opinion_estimation_accuracy calculates the accuracy of the various 
-opinion estimates by the absolute distance between the true opinion 
-and the estimate on each node.
+opinion estimates. The calculation is done by dividing the absolute distance 
+between true and estimated opinion value by 2. The division by 2 (the maximum 
+possible value of the absolute distance) results in values 
+between 0 and 1.
 
 Parameters
 ----------
@@ -18,11 +20,11 @@ Returns
 '''
 
 def opinion_estimation_accuracy(G):
-    nodes_with_estimated_opinion = list(nx.get_node_attributes(G, name='estimated_opinion').keys())
+    nodes_with_estimated_opinion = nx.get_node_attributes(G, name='estimated_opinion')
     opinions = nx.get_node_attributes(G, 'opinion')
     estimation_sum_of_distances = []
-    for key in nodes_with_estimated_opinion:
-        estimation_sum_of_distances.append(abs(opinions[key] - nodes_with_estimated_opinion[key])) 
+    for key, value in nodes_with_estimated_opinion.items():
+        estimation_sum_of_distances.append(abs(opinions[key] - value) / 2) 
     mean = np.mean(estimation_sum_of_distances)
     variance = np.var(estimation_sum_of_distances)
     return mean, variance
@@ -54,10 +56,13 @@ def recommendation_homophily_rate(G):
     homophily_rate_list = []
     opinions = nx.get_node_attributes(G, 'opinion')
     person_recommended_dict = nx.get_node_attributes(G, name='person_recommended')
-    for key, value in person_recommended_dict.items():
-        homophily_rate_list.append(abs(opinions[key] - opinions[value]) / 2)
-    mean = np.mean(homophily_rate_list)
-    variance = np.var(homophily_rate_list)
-    return mean, variance
+    if person_recommended_dict:
+        for key, value in person_recommended_dict.items():
+            homophily_rate_list.append(abs(opinions[key] - opinions[value]) / 2)
+        mean = np.mean(homophily_rate_list)
+        variance = np.var(homophily_rate_list)
+        return mean, variance
+    else:
+        return None, None
 
     

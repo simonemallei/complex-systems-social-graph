@@ -325,15 +325,15 @@ Parameters
         The list containing nodes' IDs (dictionary keys) on which to run the people recommender
     strategy : {String} default: "random"
         The string that defines the strategy used by the recommender system.
-        There are two possible strategies that can be combined with two possible sub-strategies,
-        in addition to the random strategy:
-        Strategies: random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
+        There are several possible strategies that can be combined with two possible sub-strategies:
+        Strategies: no_recommender, random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
     Substrategies: {String} default: None
-        Possible values are: counteract_homophily, favour_homophily
+        Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
+        opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
     strat_param: {dictionary} default: {"connected_components": 1}
         dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
         Elements:
-        Connected_components: {0 or 1} default: 1 (True)
+        Connected_components: 0 or 1 default: 1 (True)
         If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
         If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
@@ -389,8 +389,7 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
         recommended_friend = None
         neigs = list(nx.neighbors(G, node_id))
         if strategy == "random":
-            # recommending a random node not already friend as a new friend. 
-            recommended_friend = np.random.choice([x for x in all_nodes if x not in neigs and x != node_id], size=1, replace=False)
+            res_dict = None
         elif strategy == 'opinion_estimation_based':
             try:
                 res_dict = strategy_opinion_estimation_based(G, substrategy, neigs, node_id)
@@ -409,6 +408,9 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
             except StrategyOpinionEstimationTopologyMixedError:
                 print('ERROR! An error occurred in strategy_opinion_estimation_topology_mixed method\n')
                 raise PeopleRecommenderError
+        elif strategy == "no_recommender":
+            # continue to the next for value
+            continue
         else:
             try:
                 raise StrategyNotRecognized
@@ -416,10 +418,10 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
                 print('ERROR! Strategy not recognized\n')
                 raise PeopleRecommenderError
 
-        if recommended_friend is None:
-            recommended_friend = np.random.choice(list(res_dict.keys()), size=1, replace=False, p=list(res_dict.values()))
-            # note that recommended_friend is a numpy array with 1 element
-            person_recommended_dict[node_id] = recommended_friend[0]
+        # if res_dict is None, strategy is random, therefore the choice takes place between nodes that are not friends of the node_id node and that are not the node itself, with uniform distribution
+        recommended_friend = np.random.choice([x for x in all_nodes if x not in neigs and x != node_id] if res_dict is None else list(res_dict.keys()), size=1, replace=False, p= None if res_dict is None else list(res_dict.values()))
+        # note that recommended_friend is a numpy array with 1 element
+        person_recommended_dict[node_id] = recommended_friend[0]
 
     nx.set_node_attributes(G, person_recommended_dict, 'person_recommended')
     for key in person_recommended_dict.keys():
@@ -471,15 +473,15 @@ Parameters
               value: measure variance of "kalman" strategy. Default: 0.1 ** 2 (0.1 ^ 2)
     strategy_people_recommender : {String} default: "random"
         The string that defines the strategy used by the recommender system.
-        There are two possible strategies that can be combined with two possible sub-strategies,
-        in addition to the random strategy:
-        Strategies: random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
+        There are several possible strategies that can be combined with two possible sub-strategies:
+        Strategies: no_recommend, random, opinion_estimation_based, topology_based, opinion_estimation_topology_mixed
     substrategy_people_recommender: {String} default: None
-        Possible values are: counteract_homophily, favour_homophily
+        Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
+        opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
     people_recomm_strat_param: {dictionary} default: {"connected_components": 1}
         dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
         Elements:
-        Connected_components: {0 or 1} default: 1 (True)
+        Connected_components: 0 or 1 default: 1 (True)
         If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
         If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
