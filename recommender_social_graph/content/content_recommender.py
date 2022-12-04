@@ -7,11 +7,24 @@ from estimation import upd_estim, EstimationStrategyError
 
 class ContentRecommenderError(Exception):
     """Raised when an error occurred in the content_recommender method"""
-    pass
 
-class StrategyError(Exception):
-    """Raised when the param 'strategy' has a not regnized value"""
-    pass
+class StrategyNotRecognizedError(ContentRecommenderError):
+    """Raised when the strategy is not recognized"""
+
+class StrategyContentRandomError(ContentRecommenderError):
+    """Raised when an error occured in the random strategy of the content recommender"""
+
+class StrategyContentNormalError(ContentRecommenderError):
+    """Raised when an error occured in the normal strategy of the content recommender"""
+
+class StrategyContentNudgeError(ContentRecommenderError):
+    """Raised when an error occured in the nudge strategy of the content recommender"""
+    
+class StrategyContentSimilarError(ContentRecommenderError):
+    """Raised when an error occured in the similar strategy of the content recommender"""
+
+class StrategyContentUnsimilarError(ContentRecommenderError):
+    """Raised when an error occured in the similar strategy of the content recommender"""
 
 '''
 content_recommender performs the recommender system by content.
@@ -59,62 +72,81 @@ def content_recommender(G, act_nodes, strategy="random", strat_param={}):
         if strategy == "random":
             # Generating random recommended content in the range [-1, 1]
             # (n_post posts in the feed) 
-            n_post = strat_param.get('n_post', 1)
-            post = [np.random.uniform(-1, 1) for _ in range(n_post)]
-            #recommend_cont = np.random.uniform(-1, 1) 
-            #post = [recommend_cont] # a list with one value
-            new_feed[node_id] = feed.get(node_id, []) + post
+            try:
+                n_post = strat_param.get('n_post', 1)
+                post = [np.random.uniform(-1, 1) for _ in range(n_post)]
+                new_feed[node_id] = feed.get(node_id, []) + post
+            except Exception as cause:
+                print(f"ERROR! Random content recommender failed: {cause}\n")
+                raise StrategyContentRandomError(f"ERROR! Random content recommender failed: {cause}") from cause
         elif strategy == "normal":
             # Generating recommended content using a normal distribution with
             # the following parameters: mean = {normal_mean}, std = {normal_std}
             # (n_post posts in the feed) 
-            normal_mean = strat_param.get('normal_mean', 0.0)
-            normal_std = strat_param.get('normal_std', 0.1)
-            n_post = strat_param.get('n_post', 1)
-            
-            post = [min(1, max(-1, np.random.normal(normal_mean, normal_std))) 
-                    for _ in range(n_post)]
-            new_feed[node_id] = feed.get(node_id, []) + post
+            try:
+                normal_mean = strat_param.get('normal_mean', 0.0)
+                normal_std = strat_param.get('normal_std', 0.1)
+                n_post = strat_param.get('n_post', 1)
+                
+                post = [min(1, max(-1, np.random.normal(normal_mean, normal_std))) 
+                        for _ in range(n_post)]
+                new_feed[node_id] = feed.get(node_id, []) + post
+            except Exception as cause:
+                print(f"ERROR! Normal content recommender failed: {cause}\n")
+                raise StrategyContentNormalError(f"Normal content recommender failed: {cause}") from cause
         elif strategy == "nudge":
             # Generating recommended content using a normal distribution with
             # the following parameters: mean = {nudge_mean}, std = {nudge_std}
             # (n_post posts in the feed) 
-            if (error_var < 7e-3):
-                nudge_goal = strat_param.get('nudge_goal', 0.0)
-                node_op = opinions.get(node_id, 0.0)
-                nudge_mean = (nudge_goal + node_op) / 2
-                nudge_std = abs(nudge_mean - node_op) / 8
-                n_post = strat_param.get('n_post', 1)
-                
-                post = [min(1, max(-1, np.random.normal(nudge_mean, nudge_std))) 
-                        for _ in range(n_post)]
-                new_feed[node_id] = feed.get(node_id, []) + post
+            try:
+                if (error_var < 7e-3):
+                    nudge_goal = strat_param.get('nudge_goal', 0.0)
+                    node_op = opinions.get(node_id, 0.0)
+                    nudge_mean = (nudge_goal + node_op) / 2
+                    nudge_std = abs(nudge_mean - node_op) / 8
+                    n_post = strat_param.get('n_post', 1)
+                    
+                    post = [min(1, max(-1, np.random.normal(nudge_mean, nudge_std))) 
+                            for _ in range(n_post)]
+                    new_feed[node_id] = feed.get(node_id, []) + post
+            except Exception as cause:
+                print(f"ERROR! Nudge content recommender failed: {cause}\n")
+                raise StrategyContentNudgeError(f"Nudge content recommender failed: {cause}") from cause
         elif strategy == "similar":
-            similar_thresh = strat_param.get('similar_thresh', 0.5)
-            if (error_var < 7e-3):
-                curr_op = opinions.get(node_id, [])
-                # Deleting content that is too far away from the node's opinion (measuring the distance
-                # as the absolute difference between the content's opinion and the node's one)
-                # if we haven't estimated yet its opinion, there are no posts removed from the feed
-                if (curr_op == []):
-                    new_feed[node_id] = feed.get(node_id, [])
-                else:
-                    prev_feed = feed.get(node_id, [])
-                    new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
+            try:
+                similar_thresh = strat_param.get('similar_thresh', 0.5)
+                if (error_var < 7e-3):
+                    curr_op = opinions.get(node_id, [])
+                    # Deleting content that is too far away from the node's opinion (measuring the distance
+                    # as the absolute difference between the content's opinion and the node's one)
+                    # if we haven't estimated yet its opinion, there are no posts removed from the feed
+                    if (curr_op == []):
+                        new_feed[node_id] = feed.get(node_id, [])
+                    else:
+                        prev_feed = feed.get(node_id, [])
+                        new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) <= similar_thresh]
+            except Exception as cause:
+                print(f"ERROR! Similar content recommender failed: {cause}\n")
+                raise StrategyContentSimilarError(f"Similar content recommender failed: {cause}") from cause
         elif strategy == "unsimilar":
-            unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
-            if (error_var < 7e-3):
-                curr_op = opinions.get(node_id, [])
-                # Deleting content that is too close from the node's opinion (measuring the distance
-                # as the absolute difference between the content's opinion and the node's one) 
-                # if we haven't estimated yet its opinion, there are no posts removed from the feed
-                if (curr_op == []):
-                    new_feed[node_id] = feed.get(node_id, [])
-                else:
-                    prev_feed = feed.get(node_id, [])
-                    new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
+            try:
+                unsimilar_thresh = strat_param.get('unsimilar_thresh', 0.3)
+                if (error_var < 7e-3):
+                    curr_op = opinions.get(node_id, [])
+                    # Deleting content that is too close from the node's opinion (measuring the distance
+                    # as the absolute difference between the content's opinion and the node's one) 
+                    # if we haven't estimated yet its opinion, there are no posts removed from the feed
+                    if (curr_op == []):
+                        new_feed[node_id] = feed.get(node_id, [])
+                    else:
+                        prev_feed = feed.get(node_id, [])
+                        new_feed[node_id] = [post for post in prev_feed if abs(post - curr_op) >= unsimilar_thresh]
+            except Exception as cause:
+                print(f"ERROR! Unsimilar content recommender failed: {cause}\n")
+                raise StrategyContentUnsimilarError(f"Unsimilar content recommender failed: {cause}") from cause
         elif not (strategy == "no_recommender"):
-            raise StrategyError("Strategy not defined. Use one of the following: " +
+            print("ERROR! Strategy not defined\n")
+            raise StrategyNotRecognizedError("Strategy not defined. Use one of the following: " +
                              "[\"no_recommender\", \"random\", \"normal\", \"nudge\", \"similar\", \"unsimilar\"]")
     # Updating feed with recommended content  
     nx.set_node_attributes(G, new_feed, name='feed')
@@ -224,7 +256,8 @@ def simulate_epoch_content_recommender(G, rate_updating_nodes, epsilon = 0.0, st
         G = compute_post(G, act_nodes, epsilon)
         # Estimating opinion by the recommender
         G = upd_estim(G, strategy = estim_strategy, strat_param = estim_strat_param)
-    except (StrategyError, EstimationStrategyError) as cause:
+    except EstimationStrategyError as cause:
+        print(f"ERROR! Content recommender failed: {cause}")
         raise ContentRecommenderError(f"Error of content recommender: {cause}") from cause
         
     return G

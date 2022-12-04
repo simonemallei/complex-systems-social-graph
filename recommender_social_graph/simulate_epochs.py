@@ -140,7 +140,11 @@ def simulate_epoch_content_people_recommender(
     act_nodes = np.random.choice(range(len(G.nodes())), size=updating_nodes, replace=False)
 
     # Executing content recommender system on activated nodes
-    G = content_recommender(G, act_nodes, strategy_content_recommender, strat_param_content_recommender)
+    try:
+        G = content_recommender(G, act_nodes, strategy_content_recommender, strat_param_content_recommender)
+    except ContentRecommenderError:
+        print("ERROR! The Content Recommender failed.\n")
+        raise SimulateEpochContentPeopleRecommenderError
     # Monitoring feeds that are going to be cleared 
     G = monitor_feed(G, act_nodes)
     # Executing activation phase: activated nodes will consume their feed
@@ -152,10 +156,10 @@ def simulate_epoch_content_people_recommender(
     G = upd_estim(G, posting_nodes_list, strategy = estim_strategy, strat_param = estim_strategy_param)
     try:
       G = people_recommender(G, posting_nodes_list, strategy_people_recommender, substrategy_people_recommender, strat_param_people_recommender)
-    except (PeopleRecommenderError, ContentRecommenderError):
+    except PeopleRecommenderError:
       print("ERROR! The People Recommender failed to recommend a new friend to a given node.\n")
       raise SimulateEpochContentPeopleRecommenderError
-    
+
     return G
 
 '''
