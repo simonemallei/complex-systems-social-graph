@@ -44,9 +44,7 @@ def compute_metrics(G):
     feed_entropy_result["mean"], feed_entropy_result["variance"] = feed_entropy(G, n_buckets=10, max_len_history=30)
     epoch_metrics["feed_entropy"] = feed_entropy_result
 
-    feed_satisfaction_result = {}
-    feed_satisfaction_result["mean"], feed_satisfaction_result["variance"] = feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75)
-    epoch_metrics["feed_satisfaction"] = feed_satisfaction_result
+    epoch_metrics["feed_satisfaction"] = feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75)
 
     opinion_estimation_accuracy_result = {}
     opinion_estimation_accuracy_result["mean"], opinion_estimation_accuracy_result["variance"] = opinion_estimation_accuracy(G)
@@ -55,6 +53,8 @@ def compute_metrics(G):
     recommendation_homophily_rate_result = {}
     recommendation_homophily_rate_result["mean"], recommendation_homophily_rate_result["variance"] = recommendation_homophily_rate(G)
     epoch_metrics["recommendation_homophily_rate"] = recommendation_homophily_rate_result
+
+    epoch_metrics["engagement"] = nx.get_node_attributes(G, name="engagement")
 
     return epoch_metrics
 

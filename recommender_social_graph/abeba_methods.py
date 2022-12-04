@@ -53,6 +53,13 @@ def compute_activation(G, nodes):
     beba_beta_list = nx.get_node_attributes(G, 'beba_beta')
     prob_post = {}
     base_prob_post = nx.get_node_attributes(G, 'base_prob_post')
+
+    # Removing old engagement values
+    engagement_dict = nx.get_node_attributes(G, 'engagement')
+    for key in engagement_dict.keys():
+        del G.nodes[key]['engagement']
+    engagement_dict = {}
+
     # Activating update of each node
     for curr_node in nodes:
         node_feeds = all_feeds.get(curr_node, [])
@@ -62,6 +69,8 @@ def compute_activation(G, nodes):
 
         # Computing engagement and using it as a coefficient of posting's probability
         engagement = compute_engagement(opinions[curr_node], beba_beta_list[curr_node], node_feeds)
+        engagement_dict[curr_node] = engagement
+
         prob_post[curr_node] = min(1.0, base_prob_post[curr_node] * engagement)
 
         # Computing new opinion of curr_node
@@ -91,6 +100,7 @@ def compute_activation(G, nodes):
     nx.set_node_attributes(G, all_feeds, 'feed')
     nx.set_node_attributes(G, opinions, 'opinion')
     nx.set_node_attributes(G, prob_post, 'prob_post')
+    nx.set_node_attributes(G, engagement_dict, 'engagement')
 
     return G
 

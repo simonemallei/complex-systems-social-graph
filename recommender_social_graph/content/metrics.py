@@ -74,9 +74,8 @@ Parameters
   
 Returns
 -------
-    mean, variance : {tuple of floats}
-        A tuple containing mean and variance calculated on the 
-        every feed_satisfaction value.
+    sat_dict : {dictionary}
+        A dictionary containing every feed_satisfaction value.
 '''
 def feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75):
     feed_history = nx.get_node_attributes(G, 'feed_history')
@@ -105,7 +104,5 @@ def feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75):
             sat_dict[node] = satisf * sat_alpha + (1 - sat_alpha) * np.mean(sig_x)
 
     nx.set_node_attributes(G, sat_dict, name = 'feed_satisfaction')
-    mean = np.mean(list(sat_dict.values()))
-    variance = np.var(list(sat_dict.values()))
-    return mean, variance
+    return sat_dict
     
