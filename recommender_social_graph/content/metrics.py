@@ -20,9 +20,9 @@ Parameters
   
 Returns
 -------
-    mean, variance : {tuple of floats}
+    mean, variance : {tuple of optioonal floats}
         A tuple containing mean and variance calculated on the 
-        every entropy value.
+        every entropy value (None if there ).
 '''
 def feed_entropy(G, n_buckets=10, max_len_history=30):
     feed_history = nx.get_node_attributes(G, 'feed_history')
@@ -50,8 +50,12 @@ def feed_entropy(G, n_buckets=10, max_len_history=30):
             buckets = [buck/len_feed for buck in buckets]
             entropy_dict[node] = entropy(buckets, base = n_buckets)
 
-    mean = np.mean(list(entropy_dict.values()))
-    variance = np.var(list(entropy_dict.values()))
+    if len(entropy_dict.values()) == 0:
+        mean, variance = None, None
+    else:
+        mean = np.mean(list(entropy_dict.values()))
+        variance = np.var(list(entropy_dict.values()))
+
     return mean, variance
 
 
