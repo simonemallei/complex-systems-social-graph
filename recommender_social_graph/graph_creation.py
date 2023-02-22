@@ -110,7 +110,7 @@ Returns
   G : {networkx.Graph}
       Returns the graph obtained.
 '''
-def create_graph(n_ag, beba_beta=[1] , avg_friend=3, prob_post=[0.5], hp_alpha=2, hp_beta=1):
+def create_graph(n_ag, beba_beta=[1] , avg_friend=3, prob_post=[0.5], hp_alpha=2, hp_beta=1, stubborness=0.75):
   
     # checks on beba_beta length
     if len(beba_beta) != 1 and len(beba_beta) != n_ag:

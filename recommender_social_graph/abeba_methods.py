@@ -41,13 +41,15 @@ Parameters
         The graph containing the social network.
     nodes : {list of object}
         The list containing activated nodes' IDs (dictionary keys).
+    stubborness : {float}
+      stubborness coefficient for opinion update. Interval [0,1]
 
 Returns
 -------
     G : {networkx.Graph}
         The updated graph.
 '''
-def compute_activation(G, nodes):
+def compute_activation(G, nodes, stubborness):
     opinions = nx.get_node_attributes(G, 'opinion')
     all_feeds = nx.get_node_attributes(G, 'feed')
     beba_beta_list = nx.get_node_attributes(G, 'beba_beta')
@@ -83,12 +85,17 @@ def compute_activation(G, nodes):
             op_den += weight
 
         # If the denominator is < 0, the opinion gets polarized and 
-        # the value is set to sgn(opinions[curr_node])
+        # the value is set to sgn(opinions[curr_node]) 
         if op_den <= 0:
-            opinions[curr_node] = opinions[curr_node] / abs(opinions[curr_node])
+           opinions[curr_node] = opinions[curr_node] / abs(opinions[curr_node])
         else:
-            opinions[curr_node] = op_num / op_den
-      
+            new_opinion = op_num / op_den
+            previous_opinion = opinions[curr_node]
+            opinions[curr_node] = (
+                (stubborness) * (previous_opinion) +
+                (1 - stubborness) * (new_opinion)
+            ) 
+
         # Opinions are capped within [-1, 1] 
         if opinions[curr_node] < -1:
             opinions[curr_node] = -1

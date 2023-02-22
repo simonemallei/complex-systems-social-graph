@@ -203,6 +203,8 @@ def save_initial_data(base_path, graphs_list, graph_configurations_list, model_c
     if not os.path.isdir(base_path + "output"):
         os.mkdir(base_path + "output")
     for idx, model_configuration in enumerate(model_configurations_list):
+        graph_data = {}
+
         # Creating folder
         abs_path = base_path + "output/" + date.strftime('%Y-%m-%d_%H-%M-%S') + "_" + "config_" + str(idx)
         os.mkdir(abs_path)
@@ -212,11 +214,15 @@ def save_initial_data(base_path, graphs_list, graph_configurations_list, model_c
 
         # Getting and saving graph as a img
         graph = graphs_list[model_configuration["params"]["graph_id"]]
-        save_graph(graph, "Initial_graph", abs_path)
+        save_img_graph(graph, "Initial_graph", abs_path)
+
+        # Saving initial graph edges and configuration
+        graph_data["edges"] = [{"node_1": e[0], "node_2" : e[1]} for e in graph.edges]
+        graph_data["configuration"] = graph_configurations_list[model_configuration["params"]["graph_id"]]
 
         # Saving graph configuration
         with open(abs_path + '/initial_graph_configuration.json', 'w', encoding='utf-8') as f:
-            json.dump(graph_configurations_list[model_configuration["params"]["graph_id"]], f, ensure_ascii=False, indent=4)
+            json.dump(graph_data, f, ensure_ascii=False, indent=4)
 
         # Saving model configuration (for the entire group)
         with open(abs_path + '/initial_model_configuration.json', 'w', encoding='utf-8') as f:
@@ -245,7 +251,7 @@ def initial_data_cleaner(folders_dict):
         shutil.rmtree(path)
 
 '''
-save_graph saves a graph in the file system
+save_img_graph saves a graph in the file system
 
 Parameters
 ----------
@@ -261,7 +267,7 @@ Returns
 
 '''
 
-def save_graph(G, title, path):
+def save_img_graph(G, title, path):
     colors = list(nx.get_node_attributes(G, 'opinion').values())
     labels =  nx.get_node_attributes(G, 'opinion')
     nx.draw(G, labels= dict([index for index in enumerate(labels)]), node_color=colors, font_color='darkturquoise', vmin=-1, vmax=1, cmap = plt.cm.get_cmap('magma'))
@@ -327,7 +333,7 @@ def save_results(folders_dict, results):
     for result in results:
         conf_group_id = result[0]
         output_path = folders_dict[conf_group_id]
-        save_graph(result[1], f"Final_graph_{model_configurations_counter[conf_group_id]}", output_path)
+        save_img_graph(result[1], f"Final_graph_{model_configurations_counter[conf_group_id]}", output_path)
         result_dict = OrderedDict()
         result_dict["initial_opinions"] = result[2]
         result_dict["epochs_data"] = result[3]

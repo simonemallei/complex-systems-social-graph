@@ -2,9 +2,14 @@ import networkx as nx
 import numpy as np
 import copy
 import random
+import time
+from collections import deque
 from scipy import special
 from abeba_methods import compute_activation, compute_post
 from estimation import upd_estim
+from util import softmax_with_temperature
+
+SOFTMAX_TEMPERATURE = 0.03
 
 class RecommendedFriendNotFound(Exception):
     """Raised when the People Recommender fails to recommend a new friend to a given node"""
@@ -90,7 +95,7 @@ def strategy_opinion_estimation_based(G, substrategy, neigs, node_id):
             distances_dict[key] = abs_distance / (posteri_error_subject + posteri_errors_suggested_node)
     if substrategy == "counteract_homophily":
         if distances_dict:
-            distances_distribution = special.softmax(list(distances_dict.values()))
+            distances_distribution = softmax_with_temperature(logits=list(distances_dict.values()), temperature=SOFTMAX_TEMPERATURE)
         else:
             try:
                 raise SubstrategyError
@@ -100,7 +105,7 @@ def strategy_opinion_estimation_based(G, substrategy, neigs, node_id):
     elif substrategy == "favour_homophily":
         if distances_dict:
             # it penalizes the furthest nodes. Note that this is exactly like having 2 - abs_distance in the previous calculation
-            distances_distribution = special.softmax([-1*x for x in distances_dict.values()])
+            distances_distribution = softmax_with_temperature(logits=[-1*x for x in distances_dict.values()], temperature=SOFTMAX_TEMPERATURE)
         else:
             try:
                 raise SubstrategyError
@@ -139,6 +144,13 @@ Parameters
         List of friend node ids of the current node
     node_id : {int}
         current node id
+    res_dict_can_be_empty : {boolean}
+        Default False. If False, the code will throw an exception if no nodes were found that can be 
+        recommended to node {node_id}. If true, then the exception will not be thrown. The latter case is 
+        important if the connected_components parameter of the people recommender is set to 0 to prevent 
+        exceptions from being triggered when the {node_id} node is isolated (see the strat_param parameter).
+    all_neighbors: {dict}
+        the dictionary containing the neighbors set given a node
 
 Returns
 -------
@@ -146,36 +158,37 @@ Returns
             It contains a probability distribution on candidate nodes to be recommended.
 '''
 
-def strategy_topology_based(G, substrategy, neigs, node_id):
+def strategy_topology_based(G, substrategy, neigs, node_id, res_dict_can_be_empty = False, all_neighbors = {}):
     if substrategy == "favour_homophily":
         overlapping_dict = {}
         # BFS 
-        visited, queue = [[] for _ in range(4)], []
-        visited[0].append(node_id)
+        visited, queue = [set() for _ in range(4)], deque()
+        visited[0].add(node_id)
         queue.append((node_id, 0))
         while queue:
             # next pair (node, distance)
-            next = queue.pop(0)
+            next = queue.popleft()
             # reached max distance
             if next[1] == 3:
                 break
-            next_neigs = list(nx.neighbors(G, next[0]))
-            for neig in next_neigs:
-                if neig not in visited[next[1] + 1]:
-                    visited[next[1] + 1].append(neig)
-                    queue.append((neig, next[1] + 1))
+            to_add = all_neighbors[next[0]] - visited[next[1] + 1]
+            for neig in to_add:
+                visited[next[1] + 1].add(neig)
+                queue.append((neig, next[1] + 1))
+                
         # BFS ending
-        hop3 = [x for x in visited[3] if x not in neigs and x != node_id]
+        hop3 = tuple(x for x in visited[3] if x not in neigs and x != node_id)
         for not_friend in hop3:
-            not_friend_neigs = list(nx.neighbors(G, not_friend))
+            not_friend_neigs = all_neighbors[not_friend]
             # the number of mutual friendly nodes is given by the length of the intersection between the two friend lists
             # note that neither of the two lists can have duplicates
-            number_overlapping_friends = len(set(not_friend_neigs) & set(neigs))
+            number_overlapping_friends = len(not_friend_neigs & neigs)
             overlapping_dict[not_friend] = number_overlapping_friends
 
+        overlapping_distribution = []
         if overlapping_dict:
-            overlapping_distribution = special.softmax(list(overlapping_dict.values()))
-        else:
+            overlapping_distribution = softmax_with_temperature(logits=list(overlapping_dict.values()), temperature=SOFTMAX_TEMPERATURE)
+        elif not res_dict_can_be_empty:
             try:
                 raise SubstrategyError
             except SubstrategyError:
@@ -185,25 +198,25 @@ def strategy_topology_based(G, substrategy, neigs, node_id):
 
     elif substrategy == "counteract_homophily":
         # BFS
-        visited, queue = [], []
-        visited.append(node_id)
+        visited, queue = set(), deque()
+        visited.add(node_id)
         queue.append(node_id)
         dist = {}
         dist[node_id] = 0
         while queue:
-            next = queue.pop(0)
-            next_neigs = list(nx.neighbors(G, next))
-            for neig in next_neigs:
-                if neig not in visited:
-                    visited.append(neig)
-                    queue.append(neig)
-                    dist[neig] = dist[next] + 1
+            next = queue.popleft()
+            to_add = all_neighbors[next] - visited
+            for neig in to_add:
+                visited.add(neig)
+                queue.append(neig)
+                dist[neig] = dist[next] + 1
 
         dist_not_friends = { key:value for (key,value) in dist.items() if key not in neigs and key != node_id}
 
+        distances_distribution = []
         if dist_not_friends:
-            distances_distribution = special.softmax(list(dist_not_friends.values()))
-        else:
+            distances_distribution = softmax_with_temperature(logits=list(dist_not_friends.values()), temperature=SOFTMAX_TEMPERATURE)
+        elif not res_dict_can_be_empty:
             try:
                 raise SubstrategyError
             except SubstrategyError:
@@ -231,16 +244,23 @@ Parameters
 ----------
     G : {networkx.Graph}
         The graph containing the social network.
-    G_fake : {networkx.Graph}
-        The fake graph. It contains all the joined components of the graph G, with a possible 
-        addition of other edges up to 5% of the total. It can be None if the parameter that 
-        controls its generation in the people recommender has been set to False.
+    G_top_strat : {networkx.Graph}
+        The graph used in topology based strategy. It can contain all the joined components of the graph G, with a possible 
+        addition of other edges up to 5% of the total, or the {G} graph. It contains G graph if number of G components is equal 
+        to 1 and if there aren't new edges to add.
     substrategy : {string}
         Possible values are: counteract_homophily, favour_homophily
     neigs : {list of ints}
         List of friend node ids of the current node
     node_id : {int}
         current node id
+    all_neighbors: {dict}
+        the dictionary containing the neighbors set given a node
+    connected_components: {boolean}
+        Default True. If the value is True, then the opinion_estimation_topology_mixed strategy will connect the components 
+        of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is False, the opinion_estimation_topology_mixed strategy will always use both main strategies, but the 
+        contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
@@ -248,11 +268,11 @@ Returns
             It contains a probability distribution on candidate nodes to be recommended.
 '''
 
-def strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, node_id):
+def strategy_opinion_estimation_topology_mixed(G, G_top_strat, substrategy, neigs, node_id, all_neighbors, connected_components=True):
     if (substrategy == "favour_homophily") or (substrategy == "counteract_homophily"):
         try:
             ordered_op_estim_based_dict = {k: v for k, v in sorted(strategy_opinion_estimation_based(G, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
-            ordered_top_based_dict = {k: v for k, v in sorted(strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id).items(), key=lambda item: item[1], reverse=True)}
+            ordered_top_based_dict = {k: v for k, v in sorted(strategy_topology_based(G_top_strat, substrategy, neigs, node_id, True if connected_components is False else False, all_neighbors=all_neighbors).items(), key=lambda item: item[1], reverse=True)}
         except (StrategyOpinionEstimationBasedError, StrategyTopologyBasedError) as error:
             print(error)
             raise StrategyOpinionEstimationTopologyMixedError
@@ -276,7 +296,7 @@ def strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, no
                 positions_mixed_dict[candidate] = position
             
             if positions_mixed_dict:
-                positions_distribution = special.softmax(list(positions_mixed_dict.values()))
+                positions_distribution = softmax_with_temperature(logits= list(positions_mixed_dict.values()), temperature=SOFTMAX_TEMPERATURE)
             else:
                 raise StrategyOpinionEstimationTopologyMixedError
             res_dict = dict(zip(positions_mixed_dict.keys(), positions_distribution))
@@ -330,12 +350,12 @@ Parameters
     Substrategies: {String} default: None
         Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
         opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
-    strat_param: {dictionary} default: {"connected_components": 1}
+    strat_param: {dictionary} default: {"connected_components": True}
         dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
         Elements:
-        Connected_components: 0 or 1 default: 1 (True)
-        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
-        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
+        Connected_components: False or True default: True
+        If the value is True, then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is False, the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
@@ -354,40 +374,58 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
     for key in old_person_recommended_dict.keys():
         del G.nodes[key]['person_recommended']
 
+    old_discarded_friend_dict = nx.get_node_attributes(G, name='discarded_friend')
+    for key in old_discarded_friend_dict.keys():
+        del G.nodes[key]['discarded_friend']
+
     # Initialize data
     person_recommended_dict = {}
     all_nodes = list(G.nodes)
 
     # Preparing G_fake for topology based strategy
     G_fake = None
-    if strategy == 'topology_based' or (strategy == 'opinion_estimation_topology_mixed' and strat_param.get('connected_components', 1)): 
+    if strategy == 'topology_based' or (strategy == 'opinion_estimation_topology_mixed' and strat_param.get('connected_components', True)): 
         # before launching the BFS for the selected sub-strategy, we look for all the disconnected components 
         # of the graph to connect them. Note that the resulting graph will only be used on the all posting nodes but only in current epoch.
         number_components = nx.number_connected_components(G)
         # the components are reconnected only if there are at least 2
         if number_components > 1:
-            G_fake = copy.deepcopy(G)
-            old_nodes_found = []
             components = nx.connected_components(G)
+            G_fake = nx.Graph()
+            G_fake.add_nodes_from(next(components))
+            G_fake.add_edges_from(G.edges(G_fake.nodes))
+            # note that for starts from second component because of next(components)
             for nodes_component in components:
-                if old_nodes_found:
-                    node_source = np.random.choice(old_nodes_found, size=1, replace=False)
-                    node_target = np.random.choice(list(nodes_component), size=1, replace=False)
-                    G_fake.add_edge(node_source[0], node_target[0])
-                old_nodes_found += list(nodes_component)
-            
+                node_source = np.random.choice(list(G_fake.nodes), size=1, replace=False)
+                node_target = np.random.choice(list(nodes_component), size=1, replace=False)
+                G_fake.add_nodes_from(nodes_component)
+                G_fake.add_edges_from(G.edges(nodes_component))
+                G_fake.add_edge(node_source[0], node_target[0])
+
         # The total number of arches added, in the end, will be equal to 5% of the total number of arches
         number_edges_to_insert = (5 * G.number_of_edges() // 100) - (number_components - 1)
-        for _ in range(number_edges_to_insert):
-            # This condition happens if the number of components is equal to 1 and only at the first iteration
+
+        if number_edges_to_insert > 0:
+            non_edges_list = list(nx.non_edges(G))
             if G_fake is None:
                 G_fake = copy.deepcopy(G)
-            chosen_nonedge  = random.choice(list(nx.non_edges(G_fake)))
-            G_fake.add_edge(chosen_nonedge[0], chosen_nonedge[1])
+            if number_edges_to_insert < len(non_edges_list):
+                chosen_nonedges_keys = set(np.random.choice(len(non_edges_list), size=number_edges_to_insert, replace=False))
+                chosen_nonedge = [non_edges_list[index] for index in chosen_nonedges_keys]
+                G_fake.add_edges_from(chosen_nonedge)
+            else:
+                G_fake.add_edges_from(non_edges_list)
+
+    # Use graph for topology based strategy based on whether G_fake is defined or not
+    G_top_strat = G if G_fake is None else G_fake
+    all_neighbors = {
+        node: set(nx.neighbors(G_top_strat, node))
+        for node in G_top_strat.nodes()
+    }
 
     for node_id in nodes:
         recommended_friend = None
-        neigs = list(nx.neighbors(G, node_id))
+        neigs = all_neighbors[node_id]
         if strategy == "random":
             res_dict = None
         elif strategy == 'opinion_estimation_based':
@@ -398,13 +436,13 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
                 raise PeopleRecommenderError
         elif strategy == 'topology_based':
             try:
-                res_dict = strategy_topology_based(G if G_fake is None else G_fake, substrategy, neigs, node_id)
+                res_dict = strategy_topology_based(G_top_strat, substrategy, neigs, node_id, all_neighbors=all_neighbors)
             except StrategyTopologyBasedError:
                 print('ERROR! An error occurred in strategy_topology_based method\n')
                 raise PeopleRecommenderError
         elif strategy == 'opinion_estimation_topology_mixed':
             try:
-                res_dict = strategy_opinion_estimation_topology_mixed(G, G_fake, substrategy, neigs, node_id)
+                res_dict = strategy_opinion_estimation_topology_mixed(G, G_top_strat, substrategy, neigs, node_id, all_neighbors=all_neighbors, connected_components=strat_param.get('connected_components', True))
             except StrategyOpinionEstimationTopologyMixedError:
                 print('ERROR! An error occurred in strategy_opinion_estimation_topology_mixed method\n')
                 raise PeopleRecommenderError
@@ -420,10 +458,11 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
 
         # if res_dict is None, strategy is random, therefore the choice takes place between nodes that are not friends of the node_id node and that are not the node itself, with uniform distribution
         recommended_friend = np.random.choice([x for x in all_nodes if x not in neigs and x != node_id] if res_dict is None else list(res_dict.keys()), size=1, replace=False, p= None if res_dict is None else list(res_dict.values()))
-        # note that recommended_friend is a numpy array with 1 element
-        person_recommended_dict[node_id] = recommended_friend[0]
+        # note that recommended_friend is a not json serializable numpy array with 1 element, while python int type is json serializable
+        person_recommended_dict[node_id] = int(recommended_friend[0])
 
     nx.set_node_attributes(G, person_recommended_dict, 'person_recommended')
+    discarded_friend_dict = {}
     for key in person_recommended_dict.keys():
         G.add_edge(key, person_recommended_dict[key])
         # deleting a random edge to prevent fully connected graphs.
@@ -434,10 +473,13 @@ def people_recommender(G, nodes, strategy="random", substrategy=None, strat_para
         neigs_popular = [neig for neig in neigs if len(list(nx.neighbors(G, neig))) > 1]
         if neigs_popular:
             discarded_friend = np.random.choice(neigs_popular, size=1, replace=False)
-            # note that discarded_friend is a numpy array with 1 element
+            # note that discarded_friend is a not json serializable numpy array with 1 element, while python int type is json serializable
+            discarded_friend_dict[key] = int(discarded_friend[0])
             G.remove_edge(key, discarded_friend[0])
-        else:
-            print("WARNING: node " + str(key) + " hasn't friends (except the one just added) or has only neighbors who have only him as a friend, so no edges have been cut\n")
+        #else:
+            #print("WARNING: node " + str(key) + " hasn't friends (except the one just added) or has only neighbors who have only him as a friend, so no edges have been cut\n")
+
+    nx.set_node_attributes(G, discarded_friend_dict, 'discarded_friend')
     return G
 
 '''
@@ -478,12 +520,12 @@ Parameters
     substrategy_people_recommender: {String} default: None
         Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
         opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
-    people_recomm_strat_param: {dictionary} default: {"connected_components": 1}
+    people_recomm_strat_param: {dictionary} default: {"connected_components": True}
         dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
         Elements:
-        Connected_components: 0 or 1 default: 1 (True)
-        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
-        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
+        Connected_components: False or True default: True
+        If the value is True, then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is False, the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------

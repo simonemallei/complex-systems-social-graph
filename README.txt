@@ -21,6 +21,7 @@ Below is the explanation of each item key:
     - graph_id : id of the graph that you want to use with this configuration. It is practically the index of the chosen   graph configuration. Note that it starts at 0.
     - num_epochs : duration in epochs of the elaboration of this configuration 
     - rate_updating_nodes : probability that a node will update its opinion. Range: [0,1]
+    - stubborness : stubborness coefficient. How much the nodes remain close to their previous opinion. In this way, the nodes converge slower than before,     giving the recommenders the chance to influence the graph evolution. Range: [0,1]. Default: 0.75
     - post_epsilon: The Gaussian noise's standard deviation. This is the noise that is applied to the opinion when a node publishes content
     - estim_strategy: strategy used to estimate the opinion of a node. Values accepted: "base", "kalman". Default: "base"
     - strat_param:
@@ -50,13 +51,15 @@ Below is the explanation of each item key:
             value: threshold value used by "unsimilar" strategy.
     - strategy_people_recommender:  The string that defines the strategy used by the people recommender. Values accepted: "random", "opinion_estimation_based", "topology_based", "opinion_estimation_topology_mixed". Default "random"
     - substrategy_people_recommender: The string that defines the sub-strategy applied to the chosen strategy, excluding the random strategy. Values accepted: "counteract_homophily", "favour_homophily". Default: "None", because the default strategy is the random one.
-    - strat_param_people_recommender: {dictionary} default: {"connected_components": 1}
+    - strat_param_people_recommender: {dictionary} default: {"connected_components": true}
         dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
         Elements:
-        Connected_components: {0 or 1}
-        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
-        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
+        Connected_components: {false or true}
+        If the value is True, then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is False, the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 OUTPUT EXPLANATION
-The program saves the results in the "output" folder which, if it doesn't exist, will be created inside the path given in input when the program is started. Within this folder, as many sub-folders will be created as there are configurations specified in the model-configurations.json file. In each sub-folder there will be a number of output files equal to the number of runs for that specific configuration. This number is always set in the model-configurations.json file.
+The program saves the results in the "output" folder which, if it doesn't exist, will be created inside the path given in input when the program is started.
+Within this folder, as many sub-folders will be created as there are configurations specified in the model-configurations.json file.
+In each sub-folder there will be a number of output files equal to the number of runs for that specific configuration. This number is always set in the model-configurations.json file.
 Note that if an exception were to occur within the program, all the output files of that processing would be deleted, so as not to have partial results of the processing.

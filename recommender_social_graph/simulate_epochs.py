@@ -4,7 +4,7 @@ from abeba_methods import compute_activation, compute_post
 from content.content_recommender import monitor_feed, content_recommender
 from estimation import upd_estim
 from people.people_recommender import people_recommender, PeopleRecommenderError
-from metrics import polarisation, sarle_bimodality, disagreement
+from metrics import polarisation, sarle_bimodality, disagreement, echo_chamber_value
 from content.content_recommender import ContentRecommenderError
 from content.metrics import feed_entropy, feed_satisfaction
 from people.people_recommender_metrics import opinion_estimation_accuracy, recommendation_homophily_rate
@@ -36,12 +36,16 @@ def compute_metrics(G):
     epoch_metrics["polarization_value"] = polarisation(G)
     epoch_metrics["bimodality"] = sarle_bimodality(G)
 
+    echo_chamber_value_result = {}
+    echo_chamber_value_result["single_values"], echo_chamber_value_result["mean"] = echo_chamber_value(G)
+    epoch_metrics["echo_chamber_value"] = echo_chamber_value_result
+
     disagreement_result = {}
     disagreement_result["mean"], disagreement_result["variance"] = disagreement(G)
     epoch_metrics["disagreement"] = disagreement_result
 
     feed_entropy_result = {}
-    feed_entropy_result["mean"], feed_entropy_result["variance"] = feed_entropy(G, n_buckets=10, max_len_history=30)
+    feed_entropy_result["mean"], feed_entropy_result["variance"] = feed_entropy(G, n_buckets=11, max_len_history=30)
     epoch_metrics["feed_entropy"] = feed_entropy_result
 
     epoch_metrics["feed_satisfaction"] = feed_satisfaction(G, max_len_history = 10, sat_alpha = 0.75)
@@ -74,6 +78,8 @@ Parameters
         The graph containing the social network.
     rate_updating_nodes : {float}
         The percentage of the nodes that will be activated. Interval [0,1]
+    stubborness : {float} default: 0.75
+      stubborness coefficient for opinion update. Interval [0,1]
     epsilon : {float} default: 0.0
         The Gaussian noise's standard deviation in the posting phase.
     estim_strategy : {"base", "kalman"} default: "base"
@@ -110,12 +116,12 @@ Parameters
     substrategy_people_recommender: {String} default: None
         Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
         opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
-    strat_param_people_recommender: {dictionary} default: {"connected_components": 1}
+    strat_param_people_recommender: {dictionary} default: {"connected_components": True}
         dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
         Elements:
-        Connected_components: 0 or 1 default: 1 (True)
-        If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
-        If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
+        Connected_components: False or True. Default: True
+        If the value is True, then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+        If the value is False, the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
@@ -125,6 +131,7 @@ Returns
 def simulate_epoch_content_people_recommender(
         G, 
         rate_updating_nodes, 
+        stubborness = 0.75,
         epsilon = 0.0, 
         estim_strategy = "base", 
         estim_strategy_param = {},
@@ -148,7 +155,7 @@ def simulate_epoch_content_people_recommender(
     # Monitoring feeds that are going to be cleared 
     G = monitor_feed(G, act_nodes)
     # Executing activation phase: activated nodes will consume their feed
-    G = compute_activation(G, act_nodes)
+    G = compute_activation(G, act_nodes, stubborness)
 
     # Executing posting phase: activated nodes will post in their neighbours' feed
     G, posting_nodes_list = compute_post(G, act_nodes, epsilon)
@@ -176,6 +183,8 @@ Parameters
         It contains the following parameters:
             rate_updating_nodes : {float}
                 The percentage of the nodes that will be activated. Interval [0,1]
+            stubborness : {float} default: 0.75
+                stubborness coefficient for opinion update. Interval [0,1]
             epsilon : {float} default: 0.0
                 The Gaussian noise's standard deviation in the posting phase.
             estim_strategy : {"base", "kalman"} default: "base"
@@ -212,12 +221,12 @@ Parameters
             substrategy_people_recommender: {String} default: None
                 Possible values are: counteract_homophily, favour_homophily. They can be used with the following strategies:
                 opinion_estimation_based, topology_based, opinion_estimation_topology_mixed. Parameter ignored by other strategies
-            strat_param_people_recommender: {dictionary} default: {"connected_components": 1}
+            strat_param_people_recommender: {dictionary} default: {"connected_components": True}
                 dictionary that containing the parameters value used by the recommender. In the current version, the only strategy using this dictionary is opinion_estimation_topology_mixed. 
                 Elements:
-                Connected_components: 0 or 1 default: 1 (True)
-                If the value is 1 (True), then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
-                If the value is 0 (False), the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
+                Connected_components: False or True. Default: True
+                If the value is True, then the opinion_estimation_topology_mixed strategy will connect the components of the graph before choosing who to recommend (using both main strategies), as is the case for the topology_based strategy.
+                If the value is False, the opinion_estimation_topology_mixed strategy will always use both main strategies, but the contribution of the topology_based strategy will be limited only to the nodes present in the considered component.
 
 Returns
 -------
@@ -226,13 +235,15 @@ Returns
 '''
 def simulate_epochs(G, model_params):
     opinions_and_metrics = []
-    initial_opinions = list(nx.get_node_attributes(G, 'opinion').values())
+    initial_opinions = nx.get_node_attributes(G, 'opinion')
     for i in range(model_params["num_epochs"]):
         epoch_data = {}
+        epoch_data["graph_changes"] = {}
         try:
             G = simulate_epoch_content_people_recommender(
                         G = G,
                         rate_updating_nodes = model_params["rate_updating_nodes"],
+                        stubborness = model_params["stubborness"],
                         epsilon = model_params["post_epsilon"],
                         estim_strategy = model_params["estim_strategy"],
                         estim_strategy_param = model_params["estim_strategy_param"],
@@ -246,7 +257,9 @@ def simulate_epochs(G, model_params):
             print("An error occurred in the simulate_epoch_content_people_recommender method")
             raise simulateEpochsError
         epoch_metrics = compute_metrics(G)
-        epoch_data["opinions"] = list(nx.get_node_attributes(G, 'opinion').values())
+        epoch_data["opinions"] = nx.get_node_attributes(G, 'opinion')
+        epoch_data["graph_changes"]["edges_added"] = nx.get_node_attributes(G, 'person_recommended')
+        epoch_data["graph_changes"]["edges_deleted"] = nx.get_node_attributes(G, 'discarded_friend')
         epoch_data["metrics"] = epoch_metrics
         opinions_and_metrics.append(epoch_data)
     return G, initial_opinions, opinions_and_metrics
