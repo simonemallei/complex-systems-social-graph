@@ -11,7 +11,7 @@ Parameters
 ----------
     G : {networkx.Graph}
         The graph containing the feed history to measure.
-    n_buckets : {int}, default : 10
+    n_buckets : {int}, default : 11
         The number of buckets used to compute the entropy.
     max_len_history : {int}, default : 30
         Maximum length of the feed history considered (if we have
@@ -24,7 +24,7 @@ Returns
         A tuple containing mean and variance calculated on the 
         every entropy value (None if there ).
 '''
-def feed_entropy(G, n_buckets=10, max_len_history=30):
+def feed_entropy(G, n_buckets=11, max_len_history=30):
     feed_history = nx.get_node_attributes(G, 'feed_history')
     entropy_dict = {}
     for node in G.nodes():
