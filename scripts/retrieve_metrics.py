@@ -1,0 +1,153 @@
+from recommender_social_graph.evaluation.utilities import load_json, track_time
+
+import numpy as np
+import os
+import pandas as pd
+import warnings
+
+def _get_epoch_metrics(runs, epoch, label):
+    """
+    Get metrics for all runs for a given epoch.
+    
+    :param runs: all the runs of a configuration
+    :param epoch: the index of the epoch considered
+    :param label: label used for epoch identification
+    :return: dataframe containing epoch metrics
+    """
+    
+    metric_names = (
+        "polarization_value", 
+        "bimodality", 
+        "disagreement",
+        "echo_chamber_value",  
+        "feed_entropy", 
+        "feed_satisfaction",
+        "recommendation_homophily_rate",
+    )
+
+    metrics = {
+        metric_name: 
+            tuple(
+                run["epochs_data"][epoch]["metrics"][metric_name] 
+                for run in runs
+            )
+        for metric_name in metric_names
+    }
+    
+    epoch_metrics = {"label": label}
+
+    epoch_metrics["polarization_mean"] = np.mean(metrics["polarization_value"]) 
+    epoch_metrics["polarization_var"] = np.std(metrics["polarization_value"])
+
+    epoch_metrics["bimodality_mean"] = np.mean(metrics["bimodality"]) 
+    epoch_metrics["bimodality_var"] = np.var(metrics["bimodality"])
+
+    epoch_metrics["disagreement_mean"] = np.mean(tuple(metric["mean"] for metric in metrics["disagreement"])) 
+    epoch_metrics["disagreement_var"] = (
+        np.sum(tuple(metric["variance"] for metric in metrics["disagreement"]))
+        / (len(metrics["disagreement"]) ** 2)
+    )
+
+    if "inf" in tuple(metric["mean"] for metric in metrics["echo_chamber_value"]):
+        epoch_metrics["echo_chamber_mean"] = "inf" 
+        epoch_metrics["echo_chamber_var"] = "inf"
+    else:
+        epoch_metrics["echo_chamber_mean"] = np.mean(tuple(metric["mean"] for metric in metrics["echo_chamber_value"])) 
+        epoch_metrics["echo_chamber_var"] = (
+            np.sum(np.var(tuple(metric["single_values"].values())) for metric in metrics["echo_chamber_value"]) 
+            / (len(metrics["echo_chamber_value"]) ** 2)
+        )
+
+
+    epoch_metrics["feed_entropy_mean"] = np.mean(tuple(metric["mean"] for metric in metrics["feed_entropy"] if metric["mean"] is not None)) 
+    epoch_metrics["feed_entropy_var"] = (
+        np.sum(tuple(metric["variance"] for metric in metrics["feed_entropy"] if metric["variance"] is not None)) 
+        / (len(metrics["feed_entropy"]) ** 2)
+    )
+
+    epoch_metrics["feed_satisfaction_mean"] = np.mean(tuple(np.mean(tuple(metric.values())) for metric in metrics["feed_satisfaction"])) 
+    epoch_metrics["feed_satisfaction_var"] = (
+        np.sum(np.var(tuple(metric.values())) for metric in metrics["feed_satisfaction"]) 
+        / (len(metrics["feed_satisfaction"]) ** 2)
+    )
+
+    epoch_metrics["recommendation_homophily_rate_mean"] = np.mean(
+        tuple(metric["mean"] for metric in metrics["recommendation_homophily_rate"] if metric["mean"] is not None)
+    )
+    epoch_metrics["recommendation_homophily_rate_var"] = (
+        np.sum(tuple(metric["variance"] for metric in metrics["recommendation_homophily_rate"] if metric["variance"] is not None)) 
+        / (len(metrics["recommendation_homophily_rate"]) ** 2)
+    )
+    return epoch_metrics
+
+
+
+def _retrieve_metrics(initial_model, runs):
+    """
+    Retrieve initial, middle and final metrics for the given runs
+
+    :param initial_model: model data
+    :param runs: data containing runs data
+    :return: dataframe containing metrics for the runs
+    """
+    initial_metrics = _get_epoch_metrics(runs=runs, epoch=0, label="begin")
+    middle_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs) // 2, label="middle")
+    final_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs) - 1, label="end")
+
+    dataframe = pd.DataFrame.from_records((initial_metrics, middle_metrics, final_metrics))
+
+    dataframe["estim_strategy"] = initial_model["params"]["estim_strategy"]
+    dataframe["content_strategy"] = initial_model["params"]["strategy_content_recommender"]
+    dataframe["people_strategy"] = initial_model["params"]["strategy_people_recommender"]
+    dataframe["people_substrategy"] = initial_model["params"]["substrategy_people_recommender"]
+    if len(initial_model["params"]["strat_param_people_recommender"]) == 0:
+        dataframe["people_connected_components"] = None
+    else:
+        dataframe["people_connected_components"] = initial_model["params"]["strat_param_people_recommender"]["connected_components"]
+    
+    return dataframe
+
+def _retrieve_configuration_metrics(configuration_path):
+    """
+    Retrieve the metrics from the given configuration.
+    
+    :param configuration_path: the path to the configuration output
+    :return: dataframe containing the metrics retrieved
+    """
+    INITIAL_MODEL = "initial_model_configuration.json"
+    RUNS = 50
+
+
+    run_paths = tuple(f"model_configuration_result{i}.json" for i in range(RUNS))    
+    
+    with track_time(msg="importing data from"):
+        runs = tuple(load_json(path= configuration_path + run_path) for run_path in run_paths)
+        initial_model = load_json(path=configuration_path + INITIAL_MODEL)
+        
+    with track_time(msg="retrieving metrics"):
+        dataframe = _retrieve_metrics(
+            initial_model=initial_model,
+            runs=runs,
+        )
+
+    return dataframe
+
+def main() -> None:
+    # Add your base_path to the outputs
+    BASE_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/output/"
+    
+    warnings.filterwarnings("ignore")
+
+    df = pd.DataFrame()
+
+    configurations = tuple(os.listdir(BASE_PATH))
+
+    for configuration in configurations:
+        df = df.append(_retrieve_configuration_metrics(configuration_path= BASE_PATH + configuration + "/"))
+        
+    with pd.ExcelWriter(BASE_PATH + "metrics_output.xlsx") as writer:
+        df.to_excel(writer) 
+        
+
+if __name__ == "__main__":
+    main()
