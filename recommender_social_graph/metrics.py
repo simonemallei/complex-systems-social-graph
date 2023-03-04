@@ -104,15 +104,17 @@ Returns
 '''
 def echo_chamber_value(G):
     opinions_list = list(nx.get_node_attributes(G, 'opinion').values())
-    opinions_pdf, _ = np.histogram(opinions_list, bins=20, density=True)
+    opinions_cnt, _ = np.histogram(opinions_list, bins=20, density=False)
+    normalized_opinions = opinions_cnt / np.sum(opinions_cnt)
     opinions_dict = nx.get_node_attributes(G, 'opinion')
     echo_chamber_dict = {}
     for node in G.nodes():
         neighbors_list = list(G.neighbors(node))
         if len(neighbors_list) > 0:
             neigh_opinions_list = [opinions_dict[neigh] for neigh in neighbors_list]
-            neigh_opinions_pdf, _ = np.histogram(neigh_opinions_list, bins=20, density=True)
-            echo_chamber_dict[node] = entropy(neigh_opinions_pdf, qk=opinions_pdf)
+            neigh_opinions_cnt, _ = np.histogram(neigh_opinions_list, bins=20, density=False)
+            normalized_neigh_opinions = neigh_opinions_cnt / np.sum(neigh_opinions_cnt)
+            echo_chamber_dict[node] = entropy(normalized_neigh_opinions, qk=normalized_opinions)
             
     mean = np.mean(list(echo_chamber_dict.values()))
     # Managing infinite values to obtaint valid json values
