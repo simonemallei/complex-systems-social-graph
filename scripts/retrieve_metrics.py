@@ -58,11 +58,11 @@ def _get_epoch_metrics(runs, epoch, label):
             / (len(metrics["echo_chamber_value"]) ** 2)
         )
 
-
+    filtered_length = len(tuple(metric["variance"] for metric in metrics["feed_entropy"] if metric["variance"] is not None))
     epoch_metrics["feed_entropy_mean"] = np.mean(tuple(metric["mean"] for metric in metrics["feed_entropy"] if metric["mean"] is not None)) 
     epoch_metrics["feed_entropy_var"] = (
         np.sum(tuple(metric["variance"] for metric in metrics["feed_entropy"] if metric["variance"] is not None)) 
-        / (len(metrics["feed_entropy"]) ** 2)
+        / (filtered_length ** 2)
     )
 
     epoch_metrics["feed_satisfaction_mean"] = np.mean(tuple(np.mean(tuple(metric.values())) for metric in metrics["feed_satisfaction"])) 
@@ -71,12 +71,13 @@ def _get_epoch_metrics(runs, epoch, label):
         / (len(metrics["feed_satisfaction"]) ** 2)
     )
 
+    filtered_length = len(tuple(metric["variance"] for metric in metrics["recommendation_homophily_rate"] if metric["variance"] is not None))
     epoch_metrics["recommendation_homophily_rate_mean"] = np.mean(
         tuple(metric["mean"] for metric in metrics["recommendation_homophily_rate"] if metric["mean"] is not None)
     )
     epoch_metrics["recommendation_homophily_rate_var"] = (
         np.sum(tuple(metric["variance"] for metric in metrics["recommendation_homophily_rate"] if metric["variance"] is not None)) 
-        / (len(metrics["recommendation_homophily_rate"]) ** 2)
+        / (filtered_length ** 2)
     )
     return epoch_metrics
 
