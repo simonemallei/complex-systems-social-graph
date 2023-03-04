@@ -135,7 +135,8 @@ def _retrieve_configuration_metrics(configuration_path):
 def main() -> None:
     # Add your base_path to the outputs
     BASE_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/output/"
-    
+    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/metrics_oputput.xslx"
+
     warnings.filterwarnings("ignore")
 
     df = pd.DataFrame()
@@ -145,7 +146,7 @@ def main() -> None:
     for configuration in configurations:
         df = df.append(_retrieve_configuration_metrics(configuration_path= BASE_PATH + configuration + "/"))
         
-    with pd.ExcelWriter(BASE_PATH + "metrics_output.xlsx") as writer:
+    with pd.ExcelWriter(OUTPUT_PATH) as writer:
         df.to_excel(writer) 
         
 
