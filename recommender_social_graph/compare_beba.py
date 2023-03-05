@@ -285,7 +285,7 @@ def _multi_run_simulate(args):
 
 def compare_beba_abeba():
     OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/beba_comparison"
-    NODES = 100
+    NODES = 500
     AVG_FRIENDS = 50
     BETA = [1]
     PROB_POST = [0.5]
@@ -293,7 +293,7 @@ def compare_beba_abeba():
     HP_BETA = 1
     RATE = 0.5
     EPOCHS = 100
-    RUNS = 8
+    RUNS = 50
     G = create_graph(
         n_ag=NODES,
         avg_friend=AVG_FRIENDS,
