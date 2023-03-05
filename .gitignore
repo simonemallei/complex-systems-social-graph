@@ -243,8 +243,12 @@ recommender_social_graph/configurations/
 recommender_social_graph/output/
 configurations/
 output/
+beba_comparison/
 output_old/
 vis/
 
 # Json Files
 *.json
+
+# XLSX Files
+*.xlsx
