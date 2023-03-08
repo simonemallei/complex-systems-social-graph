@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import time
 import warnings
+import xlsxwriter
 
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, List, Optional ,Union
@@ -125,8 +126,8 @@ def _retrieve_metrics(initial_model, runs):
     :return: dataframe containing metrics for the runs
     """
     initial_metrics = _get_epoch_metrics(runs=runs, epoch=0, label="begin")
-    middle_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs) // 2, label="middle")
-    final_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs) - 1, label="end")
+    middle_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs[0]["epochs_data"]) // 2, label="middle")
+    final_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs[0]["epochs_data"]) - 1, label="end")
 
     dataframe = pd.DataFrame.from_records((initial_metrics, middle_metrics, final_metrics))
 
@@ -166,10 +167,68 @@ def _retrieve_configuration_metrics(configuration_path):
 
     return dataframe
 
+def write_excel(sheet, row, col, value):
+    if type(value) != str and np.isnan(value):
+        sheet.write(row, col, "NaN")
+    elif type(value) != str and np.isinf(value):
+        sheet.write(row, col, "Inf")
+    else:
+        sheet.write(row, col, value)
+
+
+def write_metrics(output_path, df):
+    workbook = xlsxwriter.Workbook(output_path)
+
+    METRICS = (
+        "polarization",
+        "bimodality",
+        "disagreement",
+        "echo_chamber",
+        "feed_entropy",
+        "feed_satisfaction",
+        "recommendation_homophily_rate",
+    )
+
+    CONFIGURATION_PARAMETERS = (
+        "estim_strategy",
+        "content_strategy",
+        "people_strategy",
+        "people_substrategy",
+        "people_connected_components",
+    )
+
+    for metric in METRICS:
+        ATTRIBUTES = (
+            f"{metric}_mean",
+            f"{metric}_var",
+        )
+
+
+
+        curr_sheet = workbook.add_worksheet(metric)
+        base = 1
+        for idx, param in enumerate(CONFIGURATION_PARAMETERS):
+            curr_sheet.write(0, idx, param)
+            for row in range(0, len(df.index), 3):
+                curr_sheet.write(base+(row//3), idx, df[param].iloc[row])
+        offset = len(CONFIGURATION_PARAMETERS)
+        for idx, attribute in enumerate(ATTRIBUTES):
+            
+            curr_sheet.write(0, offset+idx*3, f"{attribute}_begin")
+            curr_sheet.write(0, offset+idx*3+1, f"{attribute}_middle")
+            curr_sheet.write(0, offset+idx*3+2, f"{attribute}_end")
+            for row in range(0, len(df.index), 3):
+                write_excel(curr_sheet, base+(row//3), offset+idx*3, df[attribute].iloc[row])
+                write_excel(curr_sheet, base+(row//3), offset+idx*3+1, df[attribute].iloc[row+1])
+                write_excel(curr_sheet, base+(row//3), offset+idx*3+2, df[attribute].iloc[row+2])
+
+    workbook.close()
+    
+
 def main() -> None:
     # Add your base_path to the outputs
     BASE_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/output/"
-    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/metrics_oputput.xslx"
+    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/metrics_output.xlsx"
 
     warnings.filterwarnings("ignore")
 
@@ -180,9 +239,8 @@ def main() -> None:
     for configuration in configurations:
         df = df.append(_retrieve_configuration_metrics(configuration_path= BASE_PATH + configuration + "/"))
         
-    with pd.ExcelWriter(OUTPUT_PATH) as writer:
-        df.to_excel(writer) 
-        
+    write_metrics(output_path=OUTPUT_PATH, df=df)
+    
 
 if __name__ == "__main__":
     main()
