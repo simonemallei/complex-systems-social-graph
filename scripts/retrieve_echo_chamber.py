@@ -99,6 +99,12 @@ def _retrieve_metrics(initial_model, runs):
     dataframe["estim_strategy"] = initial_model["params"]["estim_strategy"]
     dataframe["content_strategy"] = initial_model["params"]["strategy_content_recommender"]
     dataframe["people_strategy"] = initial_model["params"]["strategy_people_recommender"]
+    dataframe["people_substrategy"] = initial_model["params"]["substrategy_people_recommender"]
+    if len(initial_model["params"]["strat_param_people_recommender"]) == 0:
+        dataframe["people_connected_components"] = None
+    else:
+        dataframe["people_connected_components"] = initial_model["params"]["strat_param_people_recommender"]["connected_components"]
+    
     
 
     return dataframe
@@ -130,8 +136,8 @@ def _retrieve_configuration_metrics(configuration_path):
 
 def main() -> None:
     # Add your base_path to the outputs
-    BASE_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/random_comparison_2/"
-    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/random_comparison_output_2.xlsx"
+    BASE_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/output/"
+    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/echo_chamber_values.xlsx"
 
     warnings.filterwarnings("ignore")
 
@@ -139,7 +145,7 @@ def main() -> None:
 
     configurations = tuple(os.listdir(BASE_PATH))
 
-    for configuration in configurations:
+    for configuration in configurations[:3]:
         df = df.append(_retrieve_configuration_metrics(configuration_path= BASE_PATH + configuration + "/"))
         
     with pd.ExcelWriter(OUTPUT_PATH) as writer:
