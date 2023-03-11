@@ -244,6 +244,9 @@ recommender_social_graph/output/
 configurations/
 output/
 beba_comparison/
+random_comparison/
+random_comparison_2/
+content_output/
 output_old/
 vis/
 
