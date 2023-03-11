@@ -133,14 +133,25 @@ def _retrieve_metrics(initial_model, runs):
 
     dataframe = pd.DataFrame.from_records(metrics)
 
-    dataframe["estim_strategy"] = initial_model["params"]["estim_strategy"]
+
     dataframe["content_strategy"] = initial_model["params"]["strategy_content_recommender"]
     dataframe["people_strategy"] = initial_model["params"]["strategy_people_recommender"]
     dataframe["people_substrategy"] = initial_model["params"]["substrategy_people_recommender"]
     if len(initial_model["params"]["strat_param_people_recommender"]) == 0:
         dataframe["people_connected_components"] = None
+        dataframe["configuration_name"] = (
+            f"{initial_model['params']['strategy_content_recommender']}/"
+            f"{initial_model['params']['strategy_people_recommender']}-"
+            f"{initial_model['params']['substrategy_people_recommender']}" 
+        )
     else:
         dataframe["people_connected_components"] = initial_model["params"]["strat_param_people_recommender"]["connected_components"]
+        dataframe["configuration_name"] = (
+            f"{initial_model['params']['strategy_content_recommender']}/"
+            f"{initial_model['params']['strategy_people_recommender']}-"
+            f"{initial_model['params']['substrategy_people_recommender']}-"
+            f"{initial_model['params']['strat_param_people_recommender']['connected_components']}" 
+        )
     
     return dataframe
 
@@ -192,7 +203,7 @@ def write_metrics(output_path, df):
     )
 
     CONFIGURATION_PARAMETERS = (
-        "estim_strategy",
+        "configuration_name",
         "content_strategy",
         "people_strategy",
         "people_substrategy",
@@ -236,7 +247,7 @@ def write_metrics(output_path, df):
 def main() -> None:
     # Add your base_path to the outputs
     BASE_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/output/"
-    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/metrics_output.xlsx"
+    OUTPUT_PATH = "D:/Projects/test_complex_system/complex-systems-social-graph/recommender_social_graph/metrics_output_5_values.xlsx"
 
     warnings.filterwarnings("ignore")
 
