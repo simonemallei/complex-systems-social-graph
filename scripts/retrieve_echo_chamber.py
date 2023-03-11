@@ -145,7 +145,7 @@ def main() -> None:
 
     configurations = tuple(os.listdir(BASE_PATH))
 
-    for configuration in configurations[:3]:
+    for configuration in configurations:
         df = df.append(_retrieve_configuration_metrics(configuration_path= BASE_PATH + configuration + "/"))
         
     with pd.ExcelWriter(OUTPUT_PATH) as writer:
