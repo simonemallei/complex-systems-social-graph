@@ -9,6 +9,7 @@ import xlsxwriter
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, List, Optional ,Union
 
+_EPOCHS = (0, 19, 39, 59, 79, 99)
 
 def load_json(path: str) -> Union[Dict[Any, Any], List[Any]]:
     """
@@ -125,11 +126,12 @@ def _retrieve_metrics(initial_model, runs):
     :param runs: data containing runs data
     :return: dataframe containing metrics for the runs
     """
-    initial_metrics = _get_epoch_metrics(runs=runs, epoch=0, label="begin")
-    middle_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs[0]["epochs_data"]) // 2, label="middle")
-    final_metrics = _get_epoch_metrics(runs=runs, epoch=len(runs[0]["epochs_data"]) - 1, label="end")
+    metrics = tuple(
+        _get_epoch_metrics(runs=runs, epoch=epoch, label=f"Epoch {epoch}")
+        for epoch in _EPOCHS
+    )
 
-    dataframe = pd.DataFrame.from_records((initial_metrics, middle_metrics, final_metrics))
+    dataframe = pd.DataFrame.from_records(metrics)
 
     dataframe["estim_strategy"] = initial_model["params"]["estim_strategy"]
     dataframe["content_strategy"] = initial_model["params"]["strategy_content_recommender"]
@@ -209,18 +211,24 @@ def write_metrics(output_path, df):
         base = 1
         for idx, param in enumerate(CONFIGURATION_PARAMETERS):
             curr_sheet.write(0, idx, param)
-            for row in range(0, len(df.index), 3):
-                curr_sheet.write(base+(row//3), idx, df[param].iloc[row])
+            for row in range(0, len(df.index), len(_EPOCHS)):
+                curr_sheet.write(base + (row // len(_EPOCHS)), idx, df[param].iloc[row])
+
         offset = len(CONFIGURATION_PARAMETERS)
         for idx, attribute in enumerate(ATTRIBUTES):
-            
-            curr_sheet.write(0, offset+idx*3, f"{attribute}_begin")
-            curr_sheet.write(0, offset+idx*3+1, f"{attribute}_middle")
-            curr_sheet.write(0, offset+idx*3+2, f"{attribute}_end")
-            for row in range(0, len(df.index), 3):
-                write_excel(curr_sheet, base+(row//3), offset+idx*3, df[attribute].iloc[row])
-                write_excel(curr_sheet, base+(row//3), offset+idx*3+1, df[attribute].iloc[row+1])
-                write_excel(curr_sheet, base+(row//3), offset+idx*3+2, df[attribute].iloc[row+2])
+            for epoch_idx, epoch in enumerate(_EPOCHS):
+                curr_sheet.write(
+                    0, 
+                    offset + idx * len(_EPOCHS) + epoch_idx, 
+                    f"{attribute}_epoch_{epoch}"
+                )
+                for row in range(0, len(df.index), len(_EPOCHS)):
+                    write_excel(
+                        curr_sheet, 
+                        base + (row // len(_EPOCHS)), 
+                        offset + idx * len(_EPOCHS) + epoch_idx, 
+                        df[attribute].iloc[row+epoch_idx]
+                    )
 
     workbook.close()
     
